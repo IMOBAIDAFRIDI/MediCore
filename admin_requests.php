@@ -10,14 +10,45 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 
 // Handle Actions
 if (isset($_GET['approve_id'])) {
-    $id = $_GET['approve_id'];
+    $id = intval($_GET['approve_id']);
+    
+    // Fetch hospital details for email
+    $h_query = $conn->query("SELECT name, email FROM hospitals WHERE id=$id");
+    if ($h_query && $h_query->num_rows > 0) {
+        $h_data = $h_query->fetch_assoc();
+        include_once 'mail_helper.php';
+        
+        $subject = "Registration Approved - MediCore";
+        $body = "Dear <strong>{$h_data['name']}</strong>,<br><br>
+                 Congratulations! Your hospital registration request has been <strong>APPROVED</strong>.<br>
+                 You can now login to your dashboard and start managing appointments.<br><br>
+                 <a href='http://localhost/hospital/login.php' style='background:#0d6efd; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;'>Login Now</a>";
+                 
+        sendMail($h_data['email'], $subject, $body);
+    }
+
     $conn->query("UPDATE hospitals SET status='approved' WHERE id=$id");
     header("Location: admin_requests.php?msg=approved");
     exit();
 }
 
 if (isset($_GET['reject_id'])) {
-    $id = $_GET['reject_id'];
+    $id = intval($_GET['reject_id']);
+
+    // Fetch hospital details for email
+    $h_query = $conn->query("SELECT name, email FROM hospitals WHERE id=$id");
+    if ($h_query && $h_query->num_rows > 0) {
+        $h_data = $h_query->fetch_assoc();
+        include_once 'mail_helper.php';
+        
+        $subject = "Registration Update - MediCore";
+        $body = "Dear <strong>{$h_data['name']}</strong>,<br><br>
+                 We regret to inform you that your registration request has been <strong>DECLINED</strong> at this time.<br>
+                 Please contact support for more information.";
+                 
+        sendMail($h_data['email'], $subject, $body);
+    }
+
     $conn->query("UPDATE hospitals SET status='rejected' WHERE id=$id");
     header("Location: admin_requests.php?msg=rejected");
     exit();

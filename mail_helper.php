@@ -11,7 +11,7 @@ require_once 'env_loader.php';
 // Load .env file
 loadEnv(__DIR__ . '/.env');
 
-function sendMail($to, $subject, $body) {
+function sendMail($to, $subject, $body, $attachment = null) {
     if (empty($to)) return false;
 
     $mail = new PHPMailer(true);
@@ -32,6 +32,11 @@ function sendMail($to, $subject, $body) {
         //Recipients
         $mail->setFrom($smtp_email, 'MediCore System');
         $mail->addAddress($to);
+
+        // Attachments
+        if ($attachment && file_exists($attachment)) {
+            $mail->addAttachment($attachment); 
+        }
 
         //Content
         $mail->isHTML(true);

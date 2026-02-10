@@ -51,6 +51,17 @@ if (isset($_GET['action'])) {
                     <strong>Time:</strong> {$p_data['appointment_time']}<br><br>
                     Please arrive on time at the hospital.");
             }
+        } elseif ($action == 'rejected') {
+             $p_query = $conn->query("SELECT p.email, p.name, a.appointment_date FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.id=$appt_id");
+            if ($p_query->num_rows > 0) {
+                $p_data = $p_query->fetch_assoc();
+                include_once 'mail_helper.php';
+                sendMail($p_data['email'], "Appointment Update - MediCore", 
+                    "Dear <strong>{$p_data['name']}</strong>,<br><br>
+                    We regret to inform you that your appointment request for <strong>{$p_data['appointment_date']}</strong> has been <strong>DECLINED</strong>.<br>
+                    This may be due to slot unavailability or other administrative reasons.<br><br>
+                    Please try booking for another date or contact the hospital.");
+            }
         }
 
         $conn->query("UPDATE appointments SET status='$action' WHERE id=$appt_id AND hospital_id=$hospital_id");
