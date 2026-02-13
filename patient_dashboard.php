@@ -83,21 +83,17 @@ $patient_id = $_SESSION['user_id'];
                     $img = !empty($h['image']) ? $h['image'] : 'https://via.placeholder.com/300x200?text=Hospital';
                     $searchUrl = "https://www.google.com/search?q=" . urlencode($h['name'] . " hospital " . $h['location']);
                     echo "
-                    <div class='card searchable-card' style='padding: 0; overflow: hidden; display: flex; flex-direction: column; position: relative;'>
-                        <div style='height: 150px; width: 100%; position: relative; overflow: hidden; background: rgba(255,255,255,0.05);'>
-                             <a href='book_appointment.php?hospital_id={$h['id']}&type=test' style='display: block; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 10;'>
-                                <span style='display:none'>Book</span>
-                             </a>
-                            <img src='{$img}' alt='{$h['name']}' style='width: 100%; height: 100%; object-fit: contain; padding: 10px;'>
-                        </div>
-                        <div style='padding: 20px; flex: 1; display: flex; flex-direction: column;'>
-                             <div style='display:flex; justify-content:space-between; align-items:center;'>
-                                <h3 style='margin-top: 0;'>{$h['name']}</h3>
-                                <a href='$searchUrl' target='_blank' class='btn btn-outline' style='padding: 2px 8px; font-size: 0.8rem; z-index: 20; position: relative;' title='Search on Browser'><i class='fa-brands fa-google'></i></a>
+                    <div class='card searchable-card' style='padding: 20px; display: flex; align-items: center; gap: 20px; position: relative; overflow: hidden; flex-direction: row;'>
+                        <img src='{$img}' alt='{$h['name']}' style='width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--glass-border); flex-shrink: 0;'>
+                        
+                        <div style='flex: 1; display: flex; flex-direction: column;'>
+                             <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;'>
+                                <h3 style='margin: 0; font-size: 1.1rem;'>{$h['name']}</h3>
+                                <a href='$searchUrl' target='_blank' class='btn btn-outline' style='padding: 2px 8px; font-size: 0.8rem;' title='Search on Browser'><i class='fa-brands fa-google'></i></a>
                             </div>
-                            <p style='opacity: 0.8; margin-bottom: 5px;'><i class='fa-solid fa-map-marker-alt'></i> {$h['location']}</p>
-                            <p style='flex: 1; opacity: 0.6; font-size: 0.9rem; margin-bottom: 15px;'>{$h['address']}</p>
-                            <a href='book_appointment.php?hospital_id={$h['id']}&type=test' class='btn btn-outline' style='text-align: center; z-index: 20; position: relative;'>Book Test</a>
+                            <p style='opacity: 0.8; margin-bottom: 5px; font-size: 0.9rem;'><i class='fa-solid fa-map-marker-alt'></i> {$h['location']}</p>
+                            
+                            <a href='book_appointment.php?hospital_id={$h['id']}&type=test' class='btn btn-outline' style='align-self: flex-start; padding: 5px 15px; font-size: 0.9rem;'>Book Test</a>
                         </div>
                     </div>";
                 }

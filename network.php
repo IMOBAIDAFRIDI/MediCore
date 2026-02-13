@@ -91,6 +91,9 @@ try {
             border-radius: 16px;
             overflow: hidden;
             display: flex;
+            align-items: center;
+            padding: 20px;
+            gap: 20px;
             transition: transform 0.3s ease, border-color 0.3s ease;
         }
 
@@ -101,14 +104,17 @@ try {
         }
 
         .hospital-img {
-            width: 120px;
-            height: 100%;
+            width: 80px;
+            height: 80px;
             object-fit: cover;
-            min-height: 150px;
+            border-radius: 50%;
+            border: 2px solid var(--glass-border);
+            flex-shrink: 0;
+            min-height: auto;
         }
 
         .hospital-content {
-            padding: 20px;
+            padding: 0;
             flex-grow: 1;
             display: flex;
             flex-direction: column;

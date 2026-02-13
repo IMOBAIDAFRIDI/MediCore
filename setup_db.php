@@ -99,6 +99,21 @@ $conn->query("INSERT IGNORE INTO vaccines (id, name, description, availability, 
 $conn->query("INSERT IGNORE INTO vaccines (id, name, description, availability, image) VALUES (6, 'Johnson & Johnson', 'Viral Vector', 'available', 'https://www.conehealth.com/app/files/public/63329ab8-ad31-4fef-9a1e-2ca76fdd5faf/WM%20Johnson%20Johnson%20COVID-19%20Vaccine-%206%20Facts%20You%20Should%20Know.png')");
 $conn->query("INSERT IGNORE INTO vaccines (id, name, description, availability, image) VALUES (7, 'Sinopharm', 'Inactivated Virus', 'available', 'https://www.reuters.com/resizer/v2/https%3A%2F%2Farchive-images.prod.global.a201836.reutersmedia.net%2F2021%2F01%2F19%2FLYNXMPEH0I02M.JPG?auth=33c54a60c98f5a26ab69c4e6d45226384c43eaf0fe2a9df83e2004a1ef5cba48&width=1920&quality=80')");
 
+// Hospital Vaccines Table (Pivot Table)
+$sql = "CREATE TABLE IF NOT EXISTS hospital_vaccines (
+    id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    hospital_id INT(11) NOT NULL,
+    vaccine_id INT(11) NOT NULL,
+    status ENUM('available', 'unavailable') DEFAULT 'unavailable',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_hospital_vaccine (hospital_id, vaccine_id)
+)";
+if ($conn->query($sql) === TRUE) {
+    echo "Table 'hospital_vaccines' checked/created successfully.<br>";
+} else {
+    echo "Error creating table 'hospital_vaccines': " . $conn->error . "<br>";
+}
+
 // Appointments Table
 $sql = "CREATE TABLE IF NOT EXISTS appointments (
     id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
