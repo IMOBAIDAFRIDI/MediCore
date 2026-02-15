@@ -56,7 +56,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="container">
             <nav>
                 <div class="logo">C19 Portal</div>
-                <div class="nav-links">
+                <button class="hamburger" id="hamburger"><i class="fa-solid fa-bars"></i></button>
+                <div class="nav-links" id="navLinks">
                     <a href="index.php" class="btn btn-outline" style="border:none;">Home</a>
                     <a href="login.php" class="btn btn-primary">Login</a>
                 </div>
@@ -100,5 +101,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <p style="text-align:center; margin-top:20px; color:var(--text-muted);">Already have an account? <a href="login.php" style="color:var(--primary);">Login</a></p>
         </div>
     </div>
+    <script src="script.js"></script>
 </body>
 </html>

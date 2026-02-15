@@ -1484,3 +1484,187 @@ label {
 .page-header .carousel-overlay {
     background: linear-gradient(rgba(3, 7, 18, 0.7), rgba(3, 7, 18, 0.8));
 }
+
+/* =========================================
+   RESPONSIVE DESIGN (GLOBAL)
+   ========================================= */
+
+/* Hamburger Menu Icon (Hidden by default) */
+.hamburger {
+    display: none;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 1.5rem;
+    z-index: 1001;
+}
+
+/* Mobile specific styling */
+@media (max-width: 992px) {
+    /* Layout Adjustments */
+    .container, .content-wrapper, .main-wrapper {
+        padding: 0 16px; 
+    }
+    
+    .dashboard-split {
+        grid-template-columns: 1fr;
+    }
+
+    .charts-grid, .charts-grid-2, .stats-grid, .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    /* Navigation */
+    .nav-links {
+        position: fixed;
+        right: -100%;
+        top: 0;
+        height: 100vh;
+        background: rgba(10, 10, 10, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 80%;
+        max-width: 300px;
+        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1000;
+        box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        padding: 40px;
+    }
+
+    .nav-links.nav-active {
+        right: 0;
+    }
+
+    .hamburger {
+        display: block;
+    }
+
+    .nav-links a {
+        margin: 15px 0;
+        font-size: 1.2rem;
+        width: 100%;
+        text-align: center;
+    }
+
+    /* Admin Dashboard Specifics */
+    .glass-nav {
+        padding: 0 20px;
+    }
+    
+    .glass-nav .nav-links-container {
+        display: none; /* Hide default desktop nav */
+        position: fixed;
+        right: -100%;
+        top: 80px; /* Below navbar */
+        height: auto;
+        flex-direction: column;
+        background: #000; /* Solid background for visibility */
+        width: 100%;
+        padding: 20px;
+        gap: 15px;
+        border-bottom: 1px solid var(--glass-border);
+        transition: right 0.3s ease;
+    }
+
+    .glass-nav .nav-links-container.nav-active {
+        right: 0;
+        display: flex;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Typography */
+    html {
+        font-size: 14px; /* Base scale down */
+    }
+
+    h1, .hero h1, .stat-value {
+        font-size: 2.5rem !important; /* Cap huge text */
+    }
+
+    h2 {
+        font-size: 1.75rem;
+    }
+
+    /* Hero */
+    .hero {
+        padding: 60px 16px;
+        text-align: center;
+    }
+
+    .hero p {
+        font-size: 1rem;
+    }
+    
+    .hero-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 20px;
+    }
+
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Tables */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    table {
+        min-width: 600px; /* Force scroll */
+    }
+
+    /* Forms */
+    .split-screen {
+        flex-direction: column;
+    }
+    
+    .split-right {
+        display: none; /* Hide image on mobile login */
+    }
+    
+    .auth-box {
+        padding: 20px;
+        margin: 20px 0;
+    }
+
+    /* Hide decorative elements that might clutter mobile */
+    .stat-icon {
+        opacity: 0.1;
+        font-size: 2.5rem;
+    }
+    
+    /* Adjust buttons */
+    .action-buttons {
+        flex-wrap: wrap;
+    }
+    
+    .header-actions .search-container {
+        display: none; /* Hide search on small screens for simple MVP */
+    }
+}
+
+@media (max-width: 480px) {
+    .nav-brand span {
+        display: none; /* Icon only for brand on tiny screens if needed, or keep text */
+    }
+    
+    .stat-card {
+        padding: 20px;
+    }
+    
+    .stat-value {
+        font-size: 2rem !important;
+    }
+    
+    .action-btn-group {
+        flex-direction: column;
+    }
+}

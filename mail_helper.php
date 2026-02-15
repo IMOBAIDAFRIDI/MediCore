@@ -11,7 +11,8 @@ require_once 'env_loader.php';
 // Load .env file
 loadEnv(__DIR__ . '/.env');
 
-function sendMail($to, $subject, $body, $attachment = null) {
+// Internal function to actually send mail via SMTP
+function sendMailNow($to, $subject, $body, $attachment = null) {
     if (empty($to)) return false;
 
     $mail = new PHPMailer(true);
@@ -54,9 +55,55 @@ function sendMail($to, $subject, $body, $attachment = null) {
         $mail->send();
         return true;
     } catch (Exception $e) {
-        // Log error instead of displaying to user to avoid breaking flow
         error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
         return false;
     }
+}
+
+// Public function that queues the email instead of sending
+function sendMail($to, $subject, $body, $attachment = null, $delete_after = false) {
+    global $conn;
+    
+    // Escape content
+    $to = $conn->real_escape_string($to);
+    $subject = $conn->real_escape_string($subject);
+    $body = $conn->real_escape_string($body);
+    $attachment = $attachment ? "'" . $conn->real_escape_string($attachment) . "'" : "NULL";
+    $del = $delete_after ? 1 : 0;
+    
+    $sql = "INSERT INTO email_queue (to_email, subject, body, attachment, delete_attachment, status) 
+            VALUES ('$to', '$subject', '$body', $attachment, $del, 'pending')";
+            
+    return $conn->query($sql);
+}
+
+// Function to process the queue (called via AJAX)
+function processEmailQueue($limit = 5) {
+    global $conn;
+    
+    // Fetch pending emails
+    $sql = "SELECT * FROM email_queue WHERE status='pending' LIMIT $limit";
+    $result = $conn->query($sql);
+    
+    $count = 0;
+    if ($result->num_rows > 0) {
+        while($row = $result->fetch_assoc()) {
+            if (sendMailNow($row['to_email'], $row['subject'], $row['body'], $row['attachment'])) {
+                $status = 'sent';
+                $count++;
+                
+                // Cleanup attachment if requested
+                if ($row['delete_attachment'] == 1 && $row['attachment'] && file_exists($row['attachment'])) {
+                    unlink($row['attachment']);
+                }
+            } else {
+                $status = 'failed';
+            }
+            
+            // Update status
+            $conn->query("UPDATE email_queue SET status='$status', sent_at=NOW() WHERE id={$row['id']}");
+        }
+    }
+    return $count;
 }
 ?>

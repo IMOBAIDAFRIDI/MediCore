@@ -12,10 +12,11 @@ $hospital_id = $_SESSION['user_id'];
 $appt_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 // Fetch Appointment Details with Hospital Info
-$sql = "SELECT a.*, p.name as pname, p.email, h.name as hname, h.email as hemail, h.address as haddress 
+$sql = "SELECT a.*, p.name as pname, p.email, h.name as hname, h.email as hemail, h.address as haddress, v.name as vname, v.description as vdesc 
         FROM appointments a 
         JOIN patients p ON a.patient_id = p.id 
         JOIN hospitals h ON a.hospital_id = h.id 
+        LEFT JOIN vaccines v ON a.vaccine_id = v.id
         WHERE a.id = $appt_id AND a.hospital_id = $hospital_id";
 $result = $conn->query($sql);
 
@@ -116,6 +117,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
 
                 function Footer() {
+                    // Doctor Signature Area
+                    $this->SetY(-40);
+                    $this->SetFont('Arial', 'B', 10);
+                    $this->Cell(0, 5, 'Dr. Ayesha', 0, 1, 'R');
+                    $this->SetFont('Times', 'I', 14); // Use Times Italic as a standard script-like alternative
+                    $this->SetTextColor(13, 110, 253); // Blue ink
+                    $this->Cell(0, 10, 'Ayesha', 0, 1, 'R'); // Simulation of signature
+                    $this->SetTextColor(0,0,0);
+                    $this->SetFont('Arial', '', 8);
+                    $this->Cell(0, 5, '(Pathologist)', 0, 1, 'R');
+
                     // Vertical Sidebar Text
                     $this->SetFont('Arial', 'B', 8);
                     $this->SetTextColor(150, 150, 150);
@@ -202,6 +214,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $pdf->Ln(5);
             $pdf->SetFont('Arial', 'I', 8);
             $pdf->Cell(0, 5, 'Please correlate with other clinical and diagnostic parameters.', 0, 1);
+            
+            // Vaccine Details Section
+            if ($appointment['type'] == 'vaccination' && !empty($appointment['vname'])) {
+                $pdf->Ln(10);
+                $pdf->SetDrawColor(13, 110, 253);
+                $pdf->SetLineWidth(0.5);
+                $pdf->Line(10, $pdf->GetY(), 200, $pdf->GetY());
+                $pdf->Ln(5);
+                
+                $pdf->SetFont('Arial', 'B', 12);
+                $pdf->SetTextColor(13, 110, 253);
+                $pdf->Cell(0, 8, 'VACCINATION DETAILS', 0, 1, 'L');
+                
+                $pdf->SetTextColor(0,0,0);
+                $pdf->SetFont('Arial', 'B', 10);
+                $pdf->Cell(40, 8, 'Vaccine Name:', 0, 0);
+                $pdf->SetFont('Arial', '', 10);
+                $pdf->Cell(0, 8, $appointment['vname'], 0, 1);
+                
+                $pdf->SetFont('Arial', 'B', 10);
+                $pdf->Cell(40, 8, 'Description:', 0, 0);
+                $pdf->SetFont('Arial', '', 10);
+                $pdf->MultiCell(0, 8, $appointment['vdesc']);
+                
+                $pdf->SetDrawColor(0,0,0); // Reset
+            }
 
             // Watermark (Center Page)
             $pdf->SetFont('Arial', 'B', 50);
@@ -217,13 +255,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                      Your medical report is attached to this email.<br>
                      <strong>Result Status:</strong> " . ucfirst($result_status);
 
-            // Send with attachment
-            sendMail($appointment['email'], $subject, $body, $temp_file);
+            // Send with attachment and request deletion after sending
+            sendMail($appointment['email'], $subject, $body, $temp_file, true);
             
-            // Clean up temp file
-            if (file_exists($temp_file)) {
-                unlink($temp_file);
-            }
+            // Note: File deletion is handled by the queue processor
         }
 
         header("Location: hospital_dashboard.php");

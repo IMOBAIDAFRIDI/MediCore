@@ -1,5 +1,7 @@
 <?php
 $servername = "localhost";
+include_once 'config.php';
+
 $username = "root";
 $password = "";
 $dbname = "hospital_db";

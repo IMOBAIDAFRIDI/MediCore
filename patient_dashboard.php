@@ -21,7 +21,8 @@ $patient_id = $_SESSION['user_id'];
         <div class="container">
             <nav>
                 <div class="logo">Patient Portal</div>
-                <div class="nav-links">
+                <button class="hamburger" id="hamburger"><i class="fa-solid fa-bars"></i></button>
+                <div class="nav-links" id="navLinks">
                     <span style="align-self:center;">Welcome, <?php echo $_SESSION['name']; ?></span>
                     <a href="profile.php" class="btn btn-outline" style="border:none;">My Profile</a>
                     <a href="logout.php" class="btn btn-outline">Logout</a>
@@ -164,5 +165,6 @@ $patient_id = $_SESSION['user_id'];
             </table>
         </div>
     </div>
+    <script src="script.js"></script>
 </body>
 </html>

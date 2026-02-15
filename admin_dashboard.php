@@ -19,7 +19,7 @@ if (isset($_GET['approve_hospital'])) {
             "Dear <strong>{$h_data['name']}</strong>,<br><br>
             Your hospital registration has been approved by the administrator.<br>
             You can now log in to your dashboard using your registered credentials.<br><br>
-            <a href='http://localhost/hospital/login.php'>Login Here</a>");
+            <a href='".BASE_URL."/login.php'>Login Here</a>");
     }
     
     $conn->query("UPDATE hospitals SET status='approved' WHERE id=$h_id");
@@ -58,7 +58,11 @@ $c_vac = $conn->query("SELECT COUNT(*) as c FROM appointments WHERE type='vaccin
             <span>MediCore</span>
         </a>
 
-        <div class="nav-links-container">
+        <button class="hamburger" id="hamburger">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+
+        <div class="nav-links-container" id="navLinks">
             <a href="admin_dashboard.php" class="nav-link active">
                 <i class="fa-solid fa-chart-grid"></i> Dashboard
             </a>
@@ -374,5 +378,13 @@ $c_vac = $conn->query("SELECT COUNT(*) as c FROM appointments WHERE type='vaccin
     </script>
 
     </div> <!-- End Main Wrapper -->
+    <script>
+        // Process email queue in background
+        fetch('process_queue.php')
+            .then(response => response.json())
+            .then(data => console.log('Queue processed:', data))
+            .catch(err => console.error('Queue error:', err));
+    </script>
+    <script src="script.js"></script>
 </body>
 </html>

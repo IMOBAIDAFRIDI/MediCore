@@ -21,7 +21,10 @@
                 <div class="logo">
                     <i class="fa-solid fa-virus-covid"></i> MediCore
                 </div>
-                <div class="nav-links">
+                <button class="hamburger" id="hamburger">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="nav-links" id="navLinks">
                     <a href="index.php" class="btn btn-outline" style="border:none;">Overview</a>
                     <a href="#features" class="btn btn-outline" style="border:none;">Features</a>
                     <a href="login.php" class="btn btn-primary"><i class="fa-solid fa-right-to-bracket"></i> Portal Login</a>

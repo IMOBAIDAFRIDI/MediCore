@@ -22,7 +22,7 @@ if (isset($_GET['approve_id'])) {
         $body = "Dear <strong>{$h_data['name']}</strong>,<br><br>
                  Congratulations! Your hospital registration request has been <strong>APPROVED</strong>.<br>
                  You can now login to your dashboard and start managing appointments.<br><br>
-                 <a href='http://localhost/hospital/login.php' style='background:#0d6efd; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;'>Login Now</a>";
+                 <a href='".BASE_URL."/login.php' style='background:#0d6efd; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;'>Login Now</a>";
                  
         sendMail($h_data['email'], $subject, $body);
     }
@@ -139,5 +139,13 @@ $result = $conn->query($sql);
             </div>
         </div>
     </div>
+    <script>
+        // Process email queue in background
+        fetch('process_queue.php')
+            .then(response => response.json())
+            .then(data => console.log('Queue processed:', data))
+            .catch(err => console.error('Queue error:', err));
+    </script>
 </body>
+
 </html>

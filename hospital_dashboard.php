@@ -198,7 +198,8 @@ if (isset($_GET['action'])) {
         <div class="container">
             <nav>
                 <div class="logo"><i class="fa-solid fa-hospital-user"></i> MediCore Hospital</div>
-                <div class="nav-links" style="display: flex; align-items: center;">
+                <button class="hamburger" id="hamburger"><i class="fa-solid fa-bars"></i></button>
+                <div class="nav-links" id="navLinks" style="display: flex; align-items: center;">
                     <?php 
                         // Image is now fetched from DB at top of file
                     ?>
@@ -399,5 +400,14 @@ if (isset($_GET['action'])) {
 
         </div>
     </div>
+    <script>
+        // Process email queue in background
+        fetch('process_queue.php')
+            .then(response => response.json())
+            .then(data => console.log('Queue processed:', data))
+            .catch(err => console.error('Queue error:', err));
+    </script>
+    <script src="script.js"></script>
 </body>
+
 </html>
