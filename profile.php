@@ -1,202 +1,146 @@
 <?php
+/**
+ * User Profile (Legacy Standalone)
+ */
 session_start();
-include 'db_connect.php';
+require_once 'config.php';
+require_once 'db_connect_pdo.php';
+require_once 'csrf_helper.php';
 
-if (!isset($_SESSION['role'])) {
-    header("Location: login.php");
+// Auth check
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
     exit();
 }
 
+$user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
-$id = $_SESSION['user_id'];
-$msg = "";
-$error = "";
+$msg = isset($_GET['msg']) ? $_GET['msg'] : '';
+$error = '';
 
-// Update logic
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $address = $_POST['address'];
-    
-    if ($role == 'patient') {
-        $name = $_POST['name'];
-        $phone = $_POST['phone'];
-        $sql = "UPDATE patients SET name='$name', phone='$phone', address='$address' WHERE id=$id";
-    } elseif ($role == 'hospital') {
-        $name = $_POST['name'];
-        $location = $_POST['location'];
-        
-        $image_path = "";
-        // Handle File Upload
+try {
+    // Fetch current user details
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->execute([$user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) die('Invalid CSRF');
+
+        $name = trim($_POST['name']);
+        $address = trim($_POST['address']);
+        $phone = isset($_POST['phone']) ? trim($_POST['phone']) : '';
+        $location = isset($_POST['location']) ? trim($_POST['location']) : '';
+        $image = $user['image']; // Default to current
+
+        // Handle Image Upload
         if (isset($_FILES['logo']) && $_FILES['logo']['error'] == 0) {
-            $allowed = ['jpg', 'jpeg', 'png', 'gif'];
-            $filename = $_FILES['logo']['name'];
-            $filetype = $_FILES['logo']['type'];
-            $filesize = $_FILES['logo']['size'];
-        
-            $ext = pathinfo($filename, PATHINFO_EXTENSION);
-            if (!in_array(strtolower($ext), $allowed)) {
-               $error = "Error: Please select a valid file format.";
-            } else {
-                if(file_exists("uploads/" . $filename)){
-                    $filename = time() . "_" . $filename; // renaming file
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, $allowed)) {
+                $new_name = 'uploads/' . time() . '_' . $_FILES['logo']['name'];
+                if (move_uploaded_file($_FILES['logo']['tmp_name'], $new_name)) {
+                    $image = $new_name;
                 }
-                
-                // Ensure uploads directory exists
-                if (!file_exists('uploads')) {
-                    mkdir('uploads', 0777, true);
-                }
+            }
+        }
 
-                move_uploaded_file($_FILES['logo']['tmp_name'], "uploads/" . $filename);
-                $image_path = "uploads/" . $filename;
-            }
-        }
-        
-        if (empty($error)) {
-            if ($image_path) {
-                // If new image uploaded, update image field too
-                $sql = "UPDATE hospitals SET name='$name', location='$location', address='$address', image='$image_path' WHERE id=$id";
-            } else {
-                // Keep old image
-                $sql = "UPDATE hospitals SET name='$name', location='$location', address='$address' WHERE id=$id";
-            }
-        }
-    }
-    
-    if (empty($error) && isset($sql)) {
-        if ($conn->query($sql) === TRUE) {
-            $_SESSION['name'] = $name; // Update session name
-            if (isset($image_path) && $image_path) $_SESSION['image'] = $image_path; // Update session image
-            $msg = "Profile updated successfully!";
+        // Update
+        $stmt = $pdo->prepare("UPDATE users SET name = ?, address = ?, phone = ?, location = ?, image = ? WHERE id = ?");
+        if ($stmt->execute([$name, $address, $phone, $location, $image, $user_id])) {
+            $_SESSION['name'] = $name;
+            header('Location: profile.php?msg=updated');
+            exit();
         } else {
-            $msg = "Error updating profile.";
+            $error = "Update failed.";
         }
     }
+} catch (PDOException $e) {
+    die($e->getMessage());
 }
 
-// Fetch current data
-if ($role == 'patient') {
-    $data = $conn->query("SELECT * FROM patients WHERE id=$id")->fetch_assoc();
-} elseif ($role == 'hospital') {
-    $data = $conn->query("SELECT * FROM hospitals WHERE id=$id")->fetch_assoc();
-} else {
-    // Admin has no profile to edit in this simple version
-    header("Location: admin_dashboard.php");
-    exit();
-}
+$home_url = 'index.php';
+if ($role == 'admin') $home_url = 'admin_dashboard.php';
+elseif ($role == 'hospital') $home_url = 'hospital_dashboard.php';
+elseif ($role == 'patient') $home_url = 'patient_dashboard.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>My Profile</title>
+    <title>My Profile | MediCore</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .profile-pic-container {
-            position: relative;
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 20px;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 3px solid var(--primary);
-            cursor: pointer;
-            background: #f0f0f0;
-        }
-        .profile-pic {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .profile-pic-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            color: #fff;
-            text-align: center;
-            padding: 5px 0;
-            font-size: 0.8rem;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .profile-pic-container:hover .profile-pic-overlay {
-            opacity: 1;
-        }
-        #logo-upload {
-            display: none;
-        }
+        .profile-pic-container { width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--primary); overflow: hidden; margin: 0 auto 20px; cursor: pointer; position: relative; }
+        .profile-pic { width: 100%; height: 100%; object-fit: cover; }
+        .overlay { position: absolute; bottom: 0; background: rgba(0,0,0,0.6); width: 100%; padding: 5px; text-align: center; color: white; font-size: 0.8rem; opacity: 0; transition: 0.3s; }
+        .profile-pic-container:hover .overlay { opacity: 1; }
+        .profile-box { max-width: 500px; margin: 40px auto; padding: 40px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; color: var(--text-muted); }
+        input, textarea { width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white; }
     </style>
 </head>
-<body>
-    <header>
-        <div class="container">
-            <nav>
-                <div class="logo">My Profile</div>
-                <div class="nav-links">
-                    <a href="<?php echo $role; ?>_dashboard.php" class="btn btn-outline">Back</a>
-                    <a href="logout.php" class="btn btn-outline">Logout</a>
-                </div>
-            </nav>
-        </div>
-    </header>
+<body style="background: var(--background); color: var(--text-light);">
+    <?php include 'header.php'; ?>
 
-    <div class="hero">
-        <div class="auth-box animate-fade" style="width: 100%; max-width: 500px;">
-            <h3 style="text-align: center; margin-bottom: 20px;">Edit Profile</h3>
-            <?php if ($msg) echo "<p style='color: var(--success); margin-bottom: 20px; text-align: center;'>$msg</p>"; ?>
-            <?php if ($error) echo "<p style='color: var(--danger); margin-bottom: 20px; text-align: center;'>$error</p>"; ?>
-            
-            <form method="POST" action="" enctype="multipart/form-data">
-                
-                <?php if ($role == 'hospital') { 
-                    $current_image = !empty($data['image']) ? $data['image'] : 'https://cdn-icons-png.flaticon.com/512/33/33777.png';
-                ?>
-                    <div style="text-align: center;">
-                        <input type="file" name="logo" id="logo-upload" onchange="previewImage(this)">
-                        <label for="logo-upload" class="profile-pic-container" title="Click to change logo">
-                            <img src="<?php echo $current_image; ?>" id="profile-preview" class="profile-pic" alt="Hospital Logo">
-                            <div class="profile-pic-overlay">
-                                <i class="fa-solid fa-camera"></i> Edit
-                            </div>
-                        </label>
+    <div class="container">
+        <div class="glass-card profile-box animate-fade">
+            <h2 style="text-align:center; margin-bottom: 30px;">Edit My Profile</h2>
+
+            <?php if($msg): ?>
+                <div style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+                    Profile updated successfully!
+                </div>
+            <?php endif; ?>
+
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+
+                <?php if($role == 'hospital'): ?>
+                    <div class="profile-pic-container" onclick="document.getElementById('logo-input').click()">
+                        <img id="preview" src="<?php echo !empty($user['image']) ? $user['image'] : 'https://cdn-icons-png.flaticon.com/512/33/33777.png'; ?>" class="profile-pic">
+                        <div class="overlay"><i class="fa fa-camera"></i> Change</div>
                     </div>
-                <?php } ?>
+                    <input type="file" name="logo" id="logo-input" style="display:none" onchange="previewImg(this)">
+                <?php endif; ?>
 
                 <div class="form-group">
-                    <label>Name</label>
-                    <input type="text" name="name" value="<?php echo $data['name']; ?>" required>
+                    <label>Name / Username</label>
+                    <input type="text" name="name" value="<?php echo htmlspecialchars($user['name']); ?>" required>
                 </div>
-                
-                <?php if ($role == 'patient') { ?>
+
+                <?php if($role == 'patient'): ?>
                     <div class="form-group">
-                        <label>Phone</label>
-                        <input type="text" name="phone" value="<?php echo $data['phone']; ?>" required>
+                        <label>Phone Number</label>
+                        <input type="text" name="phone" value="<?php echo htmlspecialchars($user['phone']); ?>" required>
                     </div>
-                <?php } else { ?>
-                     <div class="form-group">
-                        <label>Location</label>
-                        <input type="text" name="location" value="<?php echo $data['location']; ?>" required>
+                <?php else: ?>
+                    <div class="form-group">
+                        <label>Location (City)</label>
+                        <input type="text" name="location" value="<?php echo htmlspecialchars($user['location']); ?>" required>
                     </div>
-                <?php } ?>
+                <?php endif; ?>
 
                 <div class="form-group">
                     <label>Address</label>
-                    <textarea name="address" required><?php echo $data['address']; ?></textarea>
+                    <textarea name="address" rows="3" required><?php echo htmlspecialchars($user['address']); ?></textarea>
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width: 100%;">Update Changes</button>
+                <div style="display:flex; gap:15px; margin-top:20px;">
+                    <button type="submit" class="btn btn-primary flex-1" style="padding:12px;">Save Changes</button>
+                    <a href="<?php echo $home_url; ?>" class="btn btn-outline flex-1" style="padding:12px; text-align:center;">Back to Home</a>
+                </div>
             </form>
         </div>
     </div>
 
     <script>
-        function previewImage(input) {
+        function previewImg(input) {
             if (input.files && input.files[0]) {
                 var reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('profile-preview').src = e.target.result;
-                }
+                reader.onload = e => document.getElementById('preview').src = e.target.result;
                 reader.readAsDataURL(input.files[0]);
             }
         }

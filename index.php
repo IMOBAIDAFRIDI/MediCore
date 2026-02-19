@@ -1,44 +1,21 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediCore | Advanced Covid Solutions</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<?php
+$page_title = "Home Page";
+$extra_styles = '
     <style>
         .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; padding: 40px 0; }
         .feature-item { text-align: center; padding: 0; overflow: hidden; }
-        .feature-img { width: 100%; height: 200px; object-fit: cover; }
+        .feature-img { width: 100%; height: 220px; object-fit: cover; }
         .feature-content { padding: 30px; }
         .feature-icon { width: 60px; height: 60px; background: rgba(0, 242, 254, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: -60px auto 20px; position: relative; background: var(--secondary-bg); border: 1px solid var(--primary); color: var(--primary); font-size: 1.5rem; }
     </style>
-</head>
-<body>
-    <header>
-        <div class="container">
-            <nav>
-                <div class="logo">
-                    <i class="fa-solid fa-virus-covid"></i> MediCore
-                </div>
-                <button class="hamburger" id="hamburger">
-                    <i class="fa-solid fa-bars"></i>
-                </button>
-                <div class="nav-links" id="navLinks">
-                    <a href="index.php" class="btn btn-outline" style="border:none;">Overview</a>
-                    <a href="#features" class="btn btn-outline" style="border:none;">Features</a>
-                    <a href="login.php" class="btn btn-primary"><i class="fa-solid fa-right-to-bracket"></i> Portal Login</a>
-                </div>
-            </nav>
-        </div>
-    </header>
+';
+include 'header.php';
+?>
 
     <section class="hero">
         <!-- Hero Carousel -->
         <div class="hero-carousel">
-            <div class="carousel-slide active" style="background-image: url('https://images.unsplash.com/photo-1584036561566-b452ae580dbc?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');"></div>
-            <div class="carousel-slide" style="background-image: url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');"></div>
-            <div class="carousel-slide" style="background-image: url('https://images.unsplash.com/photo-1516574187841-69301905a304?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');"></div>
+            <div class="carousel-slide active" style="background-image: url('https://w0.peakpx.com/wallpaper/30/824/HD-wallpaper-medical-top-medical-background-hospital.jpg');"></div>
             <div class="carousel-overlay"></div>
         </div>
 
@@ -51,8 +28,12 @@
                 <a href="register_patient.php" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Patient Registration</a>
                 <a href="register_hospital.php" class="btn btn-outline"><i class="fa-solid fa-hospital"></i> Join as Hospital</a>
             </div>
+        </div>
+    </section>
 
-            <div class="stats-grid" style="margin-top: 80px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;">
+    <section style="padding: 40px 0;">
+        <div class="container">
+            <div class="stats-grid" style="margin-top: 20px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;">
                 <!-- Vaccines Administered -->
                 <a href="vaccines.php" style="text-decoration: none; color: inherit; display: block;">
                     <div class="stat-card card-violet" style="display: block;">
@@ -177,11 +158,4 @@
         </div>
     </section>
 
-    <footer>
-        <div class="container" style="text-align: center; padding: 40px; color: var(--text-muted); border-top: 1px solid var(--glass-border);">
-            <p>&copy; 2026 MediCore Systems. <i class="fa-solid fa-heart" style="color: var(--danger);"></i> For Humanity.</p>
-        </div>
-    </footer>
-    <script src="script.js"></script>
-</body>
-</html>
+    <?php include 'footer.php'; ?>

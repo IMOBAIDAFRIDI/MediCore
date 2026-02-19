@@ -1,48 +1,78 @@
 <?php
-include 'db_connect.php';
-$error = "";
-$success = "";
+/**
+ * Hospital Registration Page (Legacy Standalone)
+ */
+session_start();
+require_once 'config.php';
+require_once 'db_connect_pdo.php';
+require_once 'csrf_helper.php';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name = trim($_POST['name']);
-    $email = trim($_POST['email']);
-    $password_raw = $_POST['password'];
-    $address = trim($_POST['address']);
-    $location = trim($_POST['location']);
-    // Default image for new registrations
-    $image = 'https://cdn-icons-png.flaticon.com/512/33/33777.png';
+// Redirect if already logged in
+if (isset($_SESSION['user_id'])) {
+    header('Location: index.php');
+    exit();
+}
 
-    // Validation
-    if (strlen($name) < 3) {
-        $error = "Hospital name must be at least 3 characters long.";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = "Invalid email format.";
-    } elseif (strlen($password_raw) < 8) {
-        $error = "Password must be at least 8 characters long.";
-    } elseif (empty($location)) {
-        $error = "Location is required.";
-    } elseif (empty($address)) {
-        $error = "Address is required.";
+$data = [
+    'name' => '', 'email' => '', 'password' => '', 'confirm_password' => '',
+    'location' => '', 'address' => '',
+    'name_err' => '', 'email_err' => '', 'password_err' => '',
+    'confirm_password_err' => '', 'location_err' => ''
+];
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        die('Invalid CSRF Token');
+    }
+
+    $data['name'] = trim($_POST['name']);
+    $data['email'] = trim($_POST['email']);
+    $data['password'] = trim($_POST['password']);
+    $data['confirm_password'] = trim($_POST['confirm_password']);
+    $data['location'] = trim($_POST['location']);
+    $data['address'] = trim($_POST['address']);
+
+    // Validate Email
+    if (empty($data['email'])) {
+        $data['email_err'] = 'Please enter email';
     } else {
-        $password = password_hash($password_raw, PASSWORD_DEFAULT);
-
-    // Check for duplicate email
-    $checkQuery = "SELECT * FROM hospitals WHERE email = '$email'";
-    $result = $conn->query($checkQuery);
-
-    if ($result->num_rows > 0) {
-        $error = "Hospital with this email already exists!";
-        echo "<script>alert('Hospital with this email already exists!');</script>";
-    } else {
-        $sql = "INSERT INTO hospitals (name, email, password, address, location, image, status) VALUES ('$name', '$email', '$password', '$address', '$location', '$image', 'pending')";
-        
-        if ($conn->query($sql) === TRUE) {
-            $success = "Registration successful! Status is Pending Admin Approval. <a href='login.php'>Login</a>";
-        } else {
-            $error = "Error: " . $conn->error;
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$data['email']]);
+        if ($stmt->fetch()) {
+            $data['email_err'] = 'Email is already taken';
         }
     }
-    } // End validation else
+
+    // Validate Password
+    if (empty($data['password'])) {
+        $data['password_err'] = 'Please enter password';
+    } elseif (strlen($data['password']) < 6) {
+        $data['password_err'] = 'Password must be at least 6 characters';
+    } elseif (!preg_match('/[A-Z]/', $data['password'])) {
+        $data['password_err'] = 'Password must contain at least one uppercase letter';
+    } elseif (!preg_match('/[a-z]/', $data['password'])) {
+        $data['password_err'] = 'Password must contain at least one lowercase letter';
+    } elseif (!preg_match('/[0-9]/', $data['password'])) {
+        $data['password_err'] = 'Password must contain at least one number';
+    }
+
+    if ($data['password'] != $data['confirm_password']) {
+        $data['confirm_password_err'] = 'Passwords do not match';
+    }
+
+    if (empty($data['email_err']) && empty($data['password_err']) && empty($data['confirm_password_err'])) {
+        $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
+        
+        $sql = 'INSERT INTO users (name, email, password, role, location, address, status) VALUES (?, ?, ?, "hospital", ?, ?, "pending")';
+        $stmt = $pdo->prepare($sql);
+        
+        if ($stmt->execute([$data['name'], $data['email'], $hashed_password, $data['location'], $data['address']])) {
+            header('Location: login.php?msg=registration_success');
+            exit();
+        } else {
+            die('Something went wrong');
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -51,54 +81,100 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <title>Hospital Registration</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .split-screen { display: flex; min-height: 100vh; }
+        .split-left { flex: 1; display: flex; align-items: center; justify-content: center; padding: 15px; background: var(--background); }
+        .split-right { flex: 1; background: url('https://t4.ftcdn.net/jpg/06/30/07/51/360_F_630075136_WKXbHFgaZMa5G2fcIM0dBiq83oxnBrpD7.jpg') center/cover; position: relative; }
+        .split-right::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to right, var(--background), transparent); }
+        .auth-box { width: 100%; max-width: 480px; background: rgba(22, 22, 22, 0.9); backdrop-filter: blur(10px); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        @media (max-width: 900px) { .split-right { display: none; } }
+        .form-group { margin-bottom: 8px; }
+        .form-group label { display: block; margin-bottom: 3px; color: var(--text-light); font-weight: 500; font-size: 0.8rem; }
+        .form-group input, .form-group textarea { width: 100%; padding: 8px 10px; font-size: 0.85rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; color: #fff; outline: none; transition: all 0.3s; }
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1); }
+        .btn-primary { background: var(--primary); color: #000; font-weight: 600; padding: 8px; font-size: 0.9rem; border-radius: 6px; border: none; cursor: pointer; transition: all 0.3s ease; width: 100%; margin-top: 5px; }
+    </style>
 </head>
-<body>
-    <header>
-        <div class="container">
-            <nav>
-                <div class="logo">C19 Portal</div>
-                <button class="hamburger" id="hamburger"><i class="fa-solid fa-bars"></i></button>
-                <div class="nav-links" id="navLinks">
-                    <a href="index.php" class="btn btn-outline" style="border:none;">Home</a>
-                    <a href="login.php" class="btn btn-primary">Login</a>
-                </div>
-            </nav>
-        </div>
-    </header>
+<body style="min-height: 100vh; background: var(--background);">
 
-    <div class="container" style="display: flex; justify-content: center; padding-top: 60px; padding-bottom: 60px;">
-        <div class="auth-box animate-fade" style="width: 100%; max-width: 500px;">
-            <h2 style="text-align: center; margin-bottom: 30px;">Hospital Registration</h2>
-            <?php if($error) echo "<div class='badge badge-danger' style='width:100%; margin-bottom:20px; text-align:center;'>$error</div>"; ?>
-            <?php if($success) echo "<div class='badge badge-success' style='width:100%; margin-bottom:20px; text-align:center;'>$success</div>"; ?>
-            
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label>Hospital Name</label>
-                    <input type="text" name="name" required minlength="3" placeholder="e.g. City General Hospital">
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" name="email" required placeholder="contact@hospital.com">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" name="password" required minlength="8" placeholder="Secure password (min 8 chars)">
+    <div class="split-screen">
+        <div class="split-left">
+            <div class="auth-box animate-fade">
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <a href="index.php" style="font-size: 1.6rem; font-weight: 700; color: var(--primary);"><i class="fa-solid fa-virus-covid"></i> MediCore</a>
+                    <p style="color: var(--text-muted); margin-top: 2px; font-size: 0.85rem;">Hospital Partner Registration</p>
                 </div>
 
-                <div class="form-group">
-                    <label>Location (City/Area)</label>
-                    <input type="text" name="location" required placeholder="e.g. New York">
-                </div>
-                <div class="form-group">
-                    <label>Address</label>
-                    <textarea name="address" required placeholder="Full physical address"></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Application</button>
-            </form>
-            <p style="text-align:center; margin-top:20px; color:var(--text-muted);">Already registered? <a href="login.php" style="color:var(--primary);">Login</a></p>
+                <?php if (!empty($data['email_err'])) echo "<div style='color:#f87171; text-align:center; font-size:0.8rem;'>{$data['email_err']}</div>"; ?>
+                <?php if (!empty($data['password_err'])) echo "<div style='color:#f87171; text-align:center; font-size:0.8rem;'>{$data['password_err']}</div>"; ?>
+                <?php if (!empty($data['confirm_password_err'])) echo "<div style='color:#f87171; text-align:center; font-size:0.8rem;'>{$data['confirm_password_err']}</div>"; ?>
+
+                <form method="POST" action="register_hospital.php">
+                    <?php echo get_csrf_input(); ?>
+                    
+                    <div class="form-group">
+                        <label>Hospital Name</label>
+                        <div style="position: relative;">
+                            <i class="fa-solid fa-hospital" style="position: absolute; left: 10px; top: 9px; color: var(--text-muted); font-size: 0.85rem;"></i>
+                            <input type="text" name="name" required placeholder="City Hospital" value="<?php echo htmlspecialchars($data['name']); ?>" style="padding-left: 30px;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Hospital Email</label>
+                        <div style="position: relative;">
+                            <i class="fa-solid fa-envelope" style="position: absolute; left: 10px; top: 9px; color: var(--text-muted); font-size: 0.85rem;"></i>
+                            <input type="email" name="email" required placeholder="contact@hospital.com" value="<?php echo htmlspecialchars($data['email']); ?>" style="padding-left: 30px;">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="display:flex; gap:10px;">
+                        <div style="flex:1;">
+                            <label>Secure Password</label>
+                            <div style="position: relative;">
+                                <i class="fa-solid fa-lock" style="position: absolute; left: 10px; top: 9px; color: var(--text-muted); font-size: 0.85rem;"></i>
+                                <input type="password" name="password" required 
+                                       pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$"
+                                       title="Must contain at least 6 characters, including one uppercase, one lowercase, and one number"
+                                       placeholder="******" style="padding-left: 30px;">
+                            </div>
+                            <small style="display:block; font-size:0.65rem; color: #64748b; margin-top:3px;">Min 6 chars, A-z, 0-9</small>
+                        </div>
+                        <div style="flex:1;">
+                            <label>Confirm</label>
+                            <div style="position: relative;">
+                                <i class="fa-solid fa-lock" style="position: absolute; left: 10px; top: 9px; color: var(--text-muted); font-size: 0.85rem;"></i>
+                                <input type="password" name="confirm_password" required placeholder="******" style="padding-left: 30px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Location (City)</label>
+                        <div style="position: relative;">
+                            <i class="fa-solid fa-map-pin" style="position: absolute; left: 10px; top: 9px; color: var(--text-muted); font-size: 0.85rem;"></i>
+                            <input type="text" name="location" required placeholder="New York" value="<?php echo htmlspecialchars($data['location']); ?>" style="padding-left: 30px;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Full Address</label>
+                        <textarea name="address" required placeholder="123 Medical Ave, City, Country" rows="1" style="height: 38px; padding-left: 10px; padding-top: 8px;"><?php echo htmlspecialchars($data['address']); ?></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Submit Application</button>
+                    
+                    <div style="margin-top: 10px; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+                        Already registered? <a href="login.php" style="color: var(--primary); text-decoration: none;">Login here</a>
+                        <br>
+                        <a href="index.php" style="color: var(--text-muted); font-size: 0.75rem; margin-top: 5px; display: inline-block;">Back to Home</a>
+                    </div>
+                </form>
+            </div>
         </div>
+        <div class="split-right"></div>
     </div>
-    <script src="script.js"></script>
+
 </body>
 </html>

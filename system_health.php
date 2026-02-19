@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include 'db_connect_pdo.php';
 
 // Check if user is logged in as admin
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
@@ -9,8 +9,15 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 }
 
 // System Stats
-$db_status = $conn->ping() ? "Online" : "Offline";
-$db_color = $conn->ping() ? "var(--success)" : "var(--danger)";
+$db_status_bool = false;
+try {
+    $db_status_bool = (bool)$pdo->query("SELECT 1");
+} catch(Exception $e) {
+    $db_status_bool = false;
+}
+
+$db_status = $db_status_bool ? "Online" : "Offline";
+$db_color = $db_status_bool ? "var(--success)" : "var(--danger)";
 $server_soft = $_SERVER['SERVER_SOFTWARE'];
 $php_ver = phpversion();
 $memory_usage = round(memory_get_usage() / 1024 / 1024, 2) . " MB";
@@ -112,7 +119,7 @@ $server_time = date('Y-m-d H:i:s');
         <div class="container">
             <nav>
                 <div class="logo">
-                    <i class="fa-solid fa-heart-pulse" style="color: var(--primary);"></i> MediCore<span style="color: var(--primary);">Admin</span>
+                    <i class="fa-solid fa-virus-covid" style="color: var(--primary);"></i> MediCore<span style="color: var(--primary);">Admin</span>
                 </div>
                 <div class="nav-links">
                     <a href="index.php" class="btn btn-outline" style="border:none;">Home</a>
@@ -136,7 +143,7 @@ $server_time = date('Y-m-d H:i:s');
         <div class="health-grid">
             <!-- Database Status -->
             <div class="metric-card animate-fade">
-                <div class="metric-icon" style="color: <?php echo $db_color; ?>; background: rgba(<?php echo $conn->ping() ? '16, 185, 129' : '239, 68, 68'; ?>, 0.1);">
+                <div class="metric-icon" style="color: <?php echo $db_color; ?>; background: rgba(<?php echo $db_status_bool ? '16, 185, 129' : '239, 68, 68'; ?>, 0.1);">
                     <i class="fa-solid fa-database"></i>
                 </div>
                 <div class="metric-content">

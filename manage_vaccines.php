@@ -1,83 +1,67 @@
 <?php
+/**
+ * Manage Vaccines (Legacy Standalone)
+ */
 session_start();
-include 'db_connect.php';
+require_once 'config.php';
+require_once 'db_connect_pdo.php';
 
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'hospital'])) {
-    header("Location: login.php");
+// Auth check
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'hospital'])) {
+    header('Location: login.php');
     exit();
 }
 
-$start_role = $_SESSION['role'];
+$role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
-$message = "";
+$msg = isset($_GET['msg']) ? $_GET['msg'] : '';
 
-// Handle Admin Actions (Update / Delete Vaccines)
-if ($start_role === 'admin') {
-    // Handle Update
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_vaccine'])) {
-        $id = intval($_POST['vaccine_id']);
-        $name = $_POST['name'];
-        $desc = $_POST['description'];
-        $img = $_POST['image']; // URL
-        
-        $stmt = $conn->prepare("UPDATE vaccines SET name=?, description=?, image=? WHERE id=?");
-        $stmt->bind_param("sssi", $name, $desc, $img, $id);
-        if ($stmt->execute()) {
-            $message = "Vaccine updated successfully.";
-        } else {
-            $message = "Error updating vaccine.";
-        }
-    }
-
-    if (isset($_GET['delete_id'])) {
-        $del_id = intval($_GET['delete_id']);
-        $conn->query("DELETE FROM hospital_vaccines WHERE vaccine_id=$del_id"); // Cleanup dependencies first
-        $conn->query("DELETE FROM vaccines WHERE id=$del_id");
-        header("Location: manage_vaccines.php?msg=deleted");
-        exit();
+// Handle Actions (Admin Add/Edit/Delete, Hospital Status)
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $role == 'admin') {
+    $action = $_POST['action'];
+    if ($action == 'add') {
+        $stmt = $pdo->prepare("INSERT INTO vaccines (name, description, image) VALUES (?, ?, ?)");
+        $stmt->execute([$_POST['name'], $_POST['description'], $_POST['image']]);
+        header('Location: manage_vaccines.php?msg=added'); exit();
+    } elseif ($action == 'edit') {
+        $stmt = $pdo->prepare("UPDATE vaccines SET name = ?, description = ?, image = ? WHERE id = ?");
+        $stmt->execute([$_POST['name'], $_POST['description'], $_POST['image'], $_POST['id']]);
+        header('Location: manage_vaccines.php?msg=updated'); exit();
+    } elseif ($action == 'delete') {
+        $stmt = $pdo->prepare("DELETE FROM vaccines WHERE id = ?");
+        $stmt->execute([$_POST['id']]);
+        header('Location: manage_vaccines.php?msg=deleted'); exit();
     }
 }
 
-// Handle Hospital Actions (Toggle Status)
-if ($start_role === 'hospital') {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vaccine_id']) && isset($_POST['status'])) {
-        $vaccine_id = intval($_POST['vaccine_id']);
-        $status = $_POST['status'] === 'available' ? 'available' : 'unavailable';
-        
-        // Check if entry exists
-        $check_sql = "SELECT id FROM hospital_vaccines WHERE hospital_id = ? AND vaccine_id = ?";
-        $stmt = $conn->prepare($check_sql);
-        $stmt->bind_param("ii", $user_id, $vaccine_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            // Update
-            $update_sql = "UPDATE hospital_vaccines SET status = ? WHERE hospital_id = ? AND vaccine_id = ?";
-            $stmt_update = $conn->prepare($update_sql);
-            $stmt_update->bind_param("sii", $status, $user_id, $vaccine_id);
-            $stmt_update->execute();
-        } else {
-            // Insert
-            $insert_sql = "INSERT INTO hospital_vaccines (hospital_id, vaccine_id, status) VALUES (?, ?, ?)";
-            $stmt_insert = $conn->prepare($insert_sql);
-            $stmt_insert->bind_param("iis", $user_id, $vaccine_id, $status);
-            $stmt_insert->execute();
-        }
-        $message = "Vaccine status updated successfully.";
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $role == 'hospital' && $_POST['action'] == 'update_status') {
+    $v_id = $_POST['vaccine_id'];
+    $status = $_POST['status'];
+    
+    // Check if exists in hospital_vaccines
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM hospital_vaccines WHERE hospital_id = ? AND vaccine_id = ?");
+    $stmt->execute([$user_id, $v_id]);
+    if ($stmt->fetchColumn() > 0) {
+        $stmt = $pdo->prepare("UPDATE hospital_vaccines SET status = ? WHERE hospital_id = ? AND vaccine_id = ?");
+        $stmt->execute([$status, $user_id, $v_id]);
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO hospital_vaccines (hospital_id, vaccine_id, status) VALUES (?, ?, ?)");
+        $stmt->execute([$user_id, $v_id, $status]);
     }
+    header('Location: manage_vaccines.php?msg=status_updated'); exit();
 }
 
-// Fetch Data
-if ($start_role === 'admin') {
-    $result = $conn->query("SELECT * FROM vaccines ORDER BY name ASC");
+// Fetch Vaccines
+if ($role == 'admin') {
+    $list = $pdo->query("SELECT * FROM vaccines ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 } else {
     // Hospital view with status
-    $sql_vaccines = "SELECT v.*, hv.status as hospital_status 
-                     FROM vaccines v 
-                     LEFT JOIN hospital_vaccines hv ON v.id = hv.vaccine_id AND hv.hospital_id = $user_id 
-                     ORDER BY v.name ASC";
-    $result = $conn->query($sql_vaccines);
+    $stmt = $pdo->prepare("SELECT v.*, hv.status as hospital_status 
+                          FROM vaccines v 
+                          LEFT JOIN hospital_vaccines hv ON v.id = hv.vaccine_id AND hv.hospital_id = ? 
+                          ORDER BY v.name ASC");
+    $stmt->execute([$user_id]);
+    $list = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 ?>
 <!DOCTYPE html>
@@ -88,358 +72,318 @@ if ($start_role === 'admin') {
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .vaccine-list-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 30px;
+        .vaccine-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 30px; 
+            padding: 20px 0;
         }
 
-        @media (max-width: 992px) {
-            .vaccine-list-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-        
-        @media (max-width: 576px) {
-            .vaccine-list-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        .vaccine-item-card {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
+        .vaccine-card-adv {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 25px;
+            position: relative;
             overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
             display: flex;
             flex-direction: column;
-            transition: all 0.3s ease;
             height: 100%;
+        }
+
+        .vaccine-card-adv:hover {
+            transform: translateY(-8px);
+            border-color: rgba(0, 210, 255, 0.3);
+            background: rgba(255, 255, 255, 0.03);
+            box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+        }
+
+        .vaccine-card-adv::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(0, 210, 255, 0.05) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+
+        .vaccine-card-adv:hover::after { opacity: 1; }
+
+        .v-img-container {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 25px;
+            border-radius: 18px;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
             position: relative;
         }
 
-        .vaccine-item-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--primary);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        
-        .vaccine-card-img {
+        .v-img-container img {
             width: 100%;
-            height: 180px;
+            height: 100%;
             object-fit: cover;
-            border-bottom: 1px solid var(--glass-border);
+            transition: all 0.6s cubic-bezier(0.19, 1, 0.22, 1);
         }
 
-        .vaccine-card-body {
-            padding: 20px;
-            flex-grow: 1;
+        .vaccine-card-adv:hover .v-img-container {
+            border-color: rgba(0, 210, 255, 0.4);
+        }
+
+        .vaccine-card-adv:hover .v-img-container img {
+            transform: scale(1.1);
+        }
+
+        .v-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 5px 12px;
+            border-radius: 100px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 10;
+        }
+
+        .v-info-adv h3 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #fff;
+            margin: 0 0 15px 0;
+            letter-spacing: -0.5px;
+            text-align: center;
+        }
+
+        .v-telemetry-adv {
             display: flex;
             flex-direction: column;
-        }
-        
-        .vaccine-info h3 {
-            margin: 0 0 10px 0;
-            color: var(--light);
-            font-size: 1.2rem;
-            font-weight: 600;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(0,0,0,0.25);
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.03);
+            margin-bottom: 20px;
         }
 
-        .vaccine-desc-sm {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-bottom: 15px;
+        .v-node-adv {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .v-label-adv {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .v-value-adv {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+
+        .v-desc-mini {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            line-height: 1.4;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            line-height: 1.5;
-        }
-        
-        .vaccine-card-footer {
-            margin-top: auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding-top: 15px;
-            border-top: 1px solid var(--glass-border);
+            margin-bottom: 15px;
+            min-height: 2em;
         }
 
-        .status-toggle {
+        .v-actions-adv {
             display: flex;
-            align-items: center;
             gap: 10px;
-        }
-        
-        /* Toggle Switch */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 26px;
-        }
-        
-        .switch input { 
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.1);
-            transition: .4s;
-            border-radius: 34px;
-            border: 1px solid var(--glass-border);
-        }
-        
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: var(--text-muted);
-            transition: .4s;
-            border-radius: 50%;
-        }
-        
-        input:checked + .slider {
-            background-color: rgba(16, 185, 129, 0.2);
-            border-color: #10b981;
-        }
-        
-        input:checked + .slider:before {
-            transform: translateX(24px);
-            background-color: #10b981;
+            margin-top: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 15px;
         }
 
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.8);
-            backdrop-filter: blur(5px);
+        .btn-v-action {
+            flex: 1;
+            padding: 10px;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
-        .modal-content {
-            background: #1a1a1a;
-            margin: 5% auto;
-            padding: 30px;
-            border: 1px solid var(--glass-border);
-            width: 90%;
-            max-width: 600px;
-            border-radius: 16px;
-            position: relative;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
+        .btn-v-edit { background: rgba(0, 210, 255, 0.1); color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.2); }
+        .btn-v-edit:hover { background: #00d2ff; color: #000; box-shadow: 0 0 15px rgba(0, 210, 255, 0.3); }
 
-        .close-modal {
-            color: var(--text-muted);
-            position: absolute;
-            top: 20px;
-            right: 25px;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.3s;
-        }
+        .btn-v-del { background: rgba(244, 63, 94, 0.1); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.2); }
+        .btn-v-del:hover { background: #f43f5e; color: #fff; box-shadow: 0 0 15px rgba(244, 63, 94, 0.3); }
 
-        .close-modal:hover {
-            color: var(--light);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-control {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--glass-border);
-            color: white;
-            font-size: 1rem;
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+        .modal-content { 
+            background: rgba(25, 25, 25, 0.95); 
+            padding: 40px; 
+            border-radius: 30px; 
+            width: 100%; 
+            max-width: 500px; 
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 50px 100px rgba(0,0,0,0.8);
         }
     </style>
 </head>
-<body>
-    <header>
-        <div class="container">
-            <nav>
-                <div class="logo"><i class="fa-solid fa-syringe"></i> Manage Vaccines</div>
-                <div class="nav-links">
-                    <a href="<?php echo $start_role === 'admin' ? 'admin_dashboard.php' : 'hospital_dashboard.php'; ?>" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
-                </div>
-            </nav>
-        </div>
-    </header>
+<body style="background: var(--background); color: var(--text-light);">
 
-    <div class="container" style="padding-top: 40px; padding-bottom: 60px;">
-        
-        <div class="header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-            <div style="font-size: 1.5rem; font-weight: 600; color: var(--light);">
-                <i class="fa-solid fa-list-check" style="color: var(--primary);"></i> 
-                <?php echo $start_role === 'admin' ? 'System Vaccines' : 'Vaccine Inventory Control'; ?>
-            </div>
+    <div class="container" style="padding-top: 60px; max-width: 1200px;">
+        <div style="text-align: center; margin-bottom: 50px;">
+            <h1 style="font-size: 2.5rem; font-weight: 800; letter-spacing: 1px; margin:0; text-transform: uppercase;">
+                VACCINE <span style="color: var(--primary);">STOCK</span>
+            </h1>
+            <p style="margin-top: 5px; color: #94a3b8; font-weight: 500; letter-spacing: 0.5px;">Manage vaccine records and node availability.</p>
             
-            <?php if ($start_role === 'admin'): ?>
-                <a href="add_vaccine.php" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add New Vaccine</a>
+            <?php if ($role == 'admin'): ?>
+                <button class="btn btn-primary" onclick="openModal('add')" style="padding: 10px 25px; border-radius: 12px; font-weight: 800; margin-top: 25px; font-size: 0.75rem; letter-spacing: 1px;">
+                    <i class="fa-solid fa-plus"></i> ADD VACCINE
+                </button>
             <?php endif; ?>
         </div>
-        
-        <?php if ($start_role === 'hospital'): ?>
-        <p style="color: var(--text-muted); margin-bottom: 30px;">
-            Toggle the switch to mark vaccines as available or unavailable at your facility. 
-            Patients will only see vaccines marked as "Available" when booking with your hospital.
-        </p>
-        <?php endif; ?>
 
-        <?php if (!empty($message)): ?>
-            <div style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(16, 185, 129, 0.2);">
-                <i class="fa-solid fa-check-circle"></i> <?php echo $message; ?>
+        <?php if($msg): ?>
+            <div class="animate-fade" style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 12px 20px; border-radius: 12px; margin-bottom: 30px; border: 1px solid rgba(16, 185, 129, 0.2); font-weight: 600; font-size: 0.85rem; text-align: center;">
+                <i class="fa-solid fa-circle-check"></i> Status: <?php echo strtoupper(htmlspecialchars($msg)); ?>
             </div>
         <?php endif; ?>
-        
-        <?php if (isset($_GET['msg'])): ?>
-            <?php if ($_GET['msg'] == 'deleted'): ?>
-                 <div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(239, 68, 68, 0.2);">
-                    <i class="fa-solid fa-trash"></i> Vaccine deleted successfully.
-                </div>
-            <?php elseif ($_GET['msg'] == 'added'): ?>
-                <div style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(16, 185, 129, 0.2);">
-                    <i class="fa-solid fa-check-circle"></i> New vaccine added successfully.
-                </div>
-            <?php endif; ?>
-        <?php endif; ?>
 
-        <div class="vaccine-list-grid">
-            <?php
-            if ($result && $result->num_rows > 0) {
-                while($row = $result->fetch_assoc()) {
-                    $image = !empty($row['image']) ? $row['image'] : 'https://images.unsplash.com/photo-1584036561566-b93a50208ccf?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
-                    $desc = !empty($row['description']) ? $row['description'] : 'No description available.';
-                    
-                    // Safely encode data for JS
-                    $safe_id = $row['id'];
-                    $safe_name = htmlspecialchars($row['name'], ENT_QUOTES);
-                    $safe_desc = htmlspecialchars($row['description'], ENT_QUOTES);
-                    $safe_image = htmlspecialchars($row['image'], ENT_QUOTES);
-                    
-                    echo '
-                    <div class="vaccine-item-card">
-                        <img src="'.$image.'" alt="'.$row['name'].'" class="vaccine-card-img">
-                        <div class="vaccine-card-body">
-                            <div class="vaccine-info">
-                                <h3>'.$row['name'].'</h3>
-                                <p class="vaccine-desc-sm">'.$desc.'</p>
+        <div class="vaccine-grid">
+            <?php foreach($list as $v): ?>
+                <div class="vaccine-card-adv animate-fade">
+                    <?php if($role == 'hospital'): ?>
+                        <div class="v-badge" style="background: <?php echo ($v['hospital_status'] == 'available') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'; ?>; border: 1px solid <?php echo ($v['hospital_status'] == 'available') ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'; ?>; color: <?php echo ($v['hospital_status'] == 'available') ? '#10b981' : '#ef4444'; ?>;">
+                            <?php echo ($v['hospital_status'] == 'available') ? 'READY' : 'OUT OF STOCK'; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="v-img-container">
+                        <img src="<?php echo !empty($v['image']) ? $v['image'] : 'https://cdn-icons-png.flaticon.com/512/2864/2864448.png'; ?>" alt="Vaccine">
+                    </div>
+
+                    <div class="v-info-adv">
+                        <h3><?php echo htmlspecialchars($v['name']); ?></h3>
+                        <div class="v-desc-mini"><?php echo htmlspecialchars($v['description']); ?></div>
+                        
+                        <div class="v-telemetry-adv">
+                            <div class="v-node-adv">
+                                <span class="v-label-adv">ID Nucleus</span>
+                                <span class="v-value-adv">#VAC-<?php echo str_pad($v['id'], 3, '0', STR_PAD_LEFT); ?></span>
                             </div>
-                            <div class="vaccine-card-footer">
-                                <span style="font-size: 0.85rem; color: var(--text-muted);">ID: #'.$row['id'].'</span>
-                    ';
-
-                    // Hospital Role: Show Toggle
-                    if ($start_role === 'hospital') {
-                        $isChecked = ($row['hospital_status'] == 'available') ? 'checked' : '';
-                        echo '
-                                <form method="POST" class="status-toggle">
-                                    <input type="hidden" name="vaccine_id" value="'.$row['id'].'">
-                                    <input type="hidden" name="status" value="'.($isChecked ? 'unavailable' : 'available').'">
-                                    <label class="switch">
-                                        <input type="checkbox" '.$isChecked.' onchange="this.form.submit()">
-                                        <span class="slider"></span>
-                                    </label>
-                                </form>
-                        ';
-                    } 
-                    // Admin Role: Show Edit & Delete
-                    else {
-                        echo '
-                                <div style="display: flex; gap: 10px;">
-                                    <button onclick="openEditModal('.$safe_id.', \''.$safe_name.'\', \''.$safe_desc.'\', \''.$safe_image.'\')" class="btn btn-outline btn-sm" style="color: var(--primary); border-color: var(--primary); padding: 5px 10px;">
-                                        <i class="fa-solid fa-edit"></i> Edit
-                                    </button>
-                                    <a href="?delete_id='.$row['id'].'" class="btn btn-outline btn-sm" onclick="return confirm(\'Are you sure you want to delete this vaccine?\')" style="color: var(--danger); border-color: var(--danger); padding: 5px 10px;"> 
-                                        <i class="fa-solid fa-trash"></i>
-                                    </a>
-                                </div>
-                        ';
-                    }
-
-                    echo '
+                            <div class="v-node-adv">
+                                <span class="v-label-adv">Protocol</span>
+                                <span class="v-value-adv">Standard Dose</span>
+                            </div>
+                            <div class="v-node-adv" style="padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px;">
+                                <span class="v-label-adv">Status</span>
+                                <span class="v-value-adv" style="color: #00d2ff; font-weight: 800;">VERIFIED</span>
                             </div>
                         </div>
-                    </div>';
-                }
-            } else {
-                echo '<p class="text-muted">No vaccines found in the system database.</p>';
-            }
-            ?>
+                    </div>
+
+                    <div class="v-actions-adv">
+                        <?php if ($role == 'admin'): ?>
+                            <button class="btn-v-action btn-v-edit" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($v)); ?>)">
+                                <i class="fa-solid fa-pen"></i> EDIT
+                            </button>
+                            <form method="POST" onsubmit="return confirm('Delete this record?')" style="flex: 1; display: flex;">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="id" value="<?php echo $v['id']; ?>">
+                                <button type="submit" class="btn-v-action btn-v-del" style="width: 100%;">
+                                    <i class="fa-solid fa-trash"></i> DELETE
+                                </button>
+                            </form>
+                        <?php else: ?>
+                            <form method="POST" style="width: 100%;">
+                                <input type="hidden" name="action" value="update_status">
+                                <input type="hidden" name="vaccine_id" value="<?php echo $v['id']; ?>">
+                                <div style="position: relative;">
+                                    <select name="status" onchange="this.form.submit()" style="width: 100%; border-radius: 12px; height: 45px; background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); font-weight: 700; text-transform: uppercase; font-size: 0.75rem; color: #fff; cursor: pointer; text-align: center;">
+                                        <option value="available" <?php echo $v['hospital_status'] == 'available' ? 'selected' : ''; ?>>AVAILABLE</option>
+                                        <option value="unavailable" <?php echo ($v['hospital_status'] == 'unavailable' || !$v['hospital_status']) ? 'selected' : ''; ?>>UNAVAILABLE</option>
+                                    </select>
+                                </div>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div style="margin-top: 30px; text-align: center;">
+            <a href="admin_dashboard.php" style="color: #94a3b8; text-decoration: none; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; transition: all 0.3s; display: inline-flex; align-items: center; gap: 10px; justify-content: center;" onmouseover="this.style.color='#fff'; this.style.transform='translateY(-3px)'" onmouseout="this.style.color='#94a3b8'; this.style.transform='translateY(0)'">
+                <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+            </a>
         </div>
     </div>
 
-    <!-- Edit Modal -->
-    <div id="editModal" class="modal">
-        <div class="modal-content animate-fade">
-            <span class="close-modal" onclick="closeEditModal()">&times;</span>
-            <h2 style="color: var(--primary); margin-bottom: 20px;"><i class="fa-solid fa-edit"></i> Edit Vaccine</h2>
+    <!-- Admin Modal -->
+    <?php if ($role == 'admin'): ?>
+    <div id="vModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Add Vaccine</h2>
             <form method="POST">
-                <input type="hidden" name="update_vaccine" value="1">
-                <input type="hidden" id="edit_id" name="vaccine_id">
-                
+                <input type="hidden" name="action" id="modalAction" value="add">
+                <input type="hidden" name="id" id="vaccineId">
                 <div class="form-group">
-                    <label style="color: var(--light); display: block; margin-bottom: 8px;">Vaccine Name</label>
-                    <input type="text" id="edit_name" name="name" class="form-control" required>
+                    <label>Name</label>
+                    <input type="text" name="name" id="vName" placeholder="e.g. Pfizer-BioNTech" required>
                 </div>
-                
                 <div class="form-group">
-                    <label style="color: var(--light); display: block; margin-bottom: 8px;">Description</label>
-                    <textarea id="edit_desc" name="description" class="form-control" rows="4"></textarea>
+                    <label>Description</label>
+                    <textarea name="description" id="vDesc" rows="4" placeholder="Provide clinical details or dosage info..."></textarea>
                 </div>
-                
                 <div class="form-group">
-                    <label style="color: var(--light); display: block; margin-bottom: 8px;">Image URL</label>
-                    <input type="text" id="edit_image" name="image" class="form-control">
+                    <label>Image URL</label>
+                    <input type="text" name="image" id="vImage" placeholder="Paste direct image link (PNG/JPG)...">
                 </div>
-                
-                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">Update Vaccine</button>
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button type="submit" class="btn btn-primary flex-1">Save</button>
+                    <button type="button" class="btn btn-outline flex-1" onclick="closeModal()">Cancel</button>
+                </div>
             </form>
         </div>
     </div>
-
     <script>
-        function openEditModal(id, name, desc, image) {
-            document.getElementById('edit_id').value = id;
-            document.getElementById('edit_name').value = name;
-            document.getElementById('edit_desc').value = desc;
-            document.getElementById('edit_image').value = image;
-            
-            document.getElementById('editModal').style.display = 'block';
+        function openModal(action) {
+            document.getElementById('modalAction').value = action;
+            document.getElementById('modalTitle').innerText = action === 'add' ? 'Add Vaccine' : 'Edit Vaccine';
+            document.getElementById('vModal').style.display = 'flex';
         }
-
-        function closeEditModal() {
-            document.getElementById('editModal').style.display = 'none';
-        }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            var modal = document.getElementById('editModal');
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
+        function closeModal() { document.getElementById('vModal').style.display = 'none'; }
+        function openEditModal(v) {
+            document.getElementById('vaccineId').value = v.id;
+            document.getElementById('vName').value = v.name;
+            document.getElementById('vDesc').value = v.description;
+            document.getElementById('vImage').value = v.image;
+            openModal('edit');
         }
     </script>
+    <?php endif; ?>
+
 </body>
 </html>

@@ -187,7 +187,7 @@ h4 {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 20px;
+    padding: 84px;
     width: 100%;
 }
 
@@ -1436,8 +1436,9 @@ label {
     left: 0;
     width: 100%;
     height: 100%;
-    background-size: cover;
+    background-size: 100% 100%;
     background-position: center;
+    background-repeat: no-repeat;
     opacity: 0;
     transition: opacity 1.5s ease-in-out;
 }
@@ -1502,16 +1503,22 @@ label {
 
 /* Mobile specific styling */
 @media (max-width: 992px) {
+
     /* Layout Adjustments */
-    .container, .content-wrapper, .main-wrapper {
-        padding: 0 16px; 
+    .container,
+    .content-wrapper,
+    .main-wrapper {
+        padding: 0 16px;
     }
-    
+
     .dashboard-split {
         grid-template-columns: 1fr;
     }
 
-    .charts-grid, .charts-grid-2, .stats-grid, .dashboard-grid {
+    .charts-grid,
+    .charts-grid-2,
+    .stats-grid,
+    .dashboard-grid {
         grid-template-columns: 1fr;
         gap: 16px;
     }
@@ -1532,7 +1539,7 @@ label {
         max-width: 300px;
         transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 1000;
-        box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
         padding: 40px;
     }
 
@@ -1555,15 +1562,18 @@ label {
     .glass-nav {
         padding: 0 20px;
     }
-    
+
     .glass-nav .nav-links-container {
-        display: none; /* Hide default desktop nav */
+        display: none;
+        /* Hide default desktop nav */
         position: fixed;
         right: -100%;
-        top: 80px; /* Below navbar */
+        top: 80px;
+        /* Below navbar */
         height: auto;
         flex-direction: column;
-        background: #000; /* Solid background for visibility */
+        background: #000;
+        /* Solid background for visibility */
         width: 100%;
         padding: 20px;
         gap: 15px;
@@ -1578,13 +1588,18 @@ label {
 }
 
 @media (max-width: 768px) {
+
     /* Typography */
     html {
-        font-size: 14px; /* Base scale down */
+        font-size: 14px;
+        /* Base scale down */
     }
 
-    h1, .hero h1, .stat-value {
-        font-size: 2.5rem !important; /* Cap huge text */
+    h1,
+    .hero h1,
+    .stat-value {
+        font-size: 2.5rem !important;
+        /* Cap huge text */
     }
 
     h2 {
@@ -1600,7 +1615,7 @@ label {
     .hero p {
         font-size: 1rem;
     }
-    
+
     .hero-card {
         flex-direction: column;
         text-align: center;
@@ -1616,20 +1631,22 @@ label {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
-    
+
     table {
-        min-width: 600px; /* Force scroll */
+        min-width: 600px;
+        /* Force scroll */
     }
 
     /* Forms */
     .split-screen {
         flex-direction: column;
     }
-    
+
     .split-right {
-        display: none; /* Hide image on mobile login */
+        display: none;
+        /* Hide image on mobile login */
     }
-    
+
     .auth-box {
         padding: 20px;
         margin: 20px 0;
@@ -1640,31 +1657,401 @@ label {
         opacity: 0.1;
         font-size: 2.5rem;
     }
-    
+
     /* Adjust buttons */
     .action-buttons {
         flex-wrap: wrap;
     }
-    
+
     .header-actions .search-container {
-        display: none; /* Hide search on small screens for simple MVP */
+        display: none;
+        /* Hide search on small screens for simple MVP */
     }
 }
 
 @media (max-width: 480px) {
     .nav-brand span {
-        display: none; /* Icon only for brand on tiny screens if needed, or keep text */
+        display: none;
+        /* Icon only for brand on tiny screens if needed, or keep text */
     }
-    
+
     .stat-card {
         padding: 20px;
     }
-    
+
     .stat-value {
         font-size: 2rem !important;
     }
-    
+
     .action-btn-group {
         flex-direction: column;
+    }
+}
+
+/* Dark Authentication Page Styles */
+.auth-container-dark {
+    display: flex;
+    flex-direction: row !important;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: flex-start !important;
+    padding-left: 10%;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Background Gradients/Effects for Auth Page */
+.auth-container-dark::before {
+    content: '';
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+    top: -100px;
+    left: -100px;
+    z-index: 0;
+}
+
+.auth-container-dark::after {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, transparent 70%);
+    bottom: -50px;
+    right: -50px;
+    z-index: 0;
+}
+
+.auth-card-dark {
+    width: 100%;
+    max-width: 420px;
+    background: #0f0f0f;
+    border: 1px solid #1f1f1f;
+    border-radius: 20px;
+    padding: 30px;
+    position: relative;
+    z-index: 10;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.auth-header-dark {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.auth-logo-dark {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.auth-logo-dark i {
+    color: #8b5cf6;
+    /* Primary Violet */
+}
+
+.auth-subtitle-dark {
+    color: #525252;
+    font-size: 0.95rem;
+}
+
+.form-control-dark {
+    width: 100%;
+    background: #0a0a0a;
+    border: 1px solid #262626;
+    color: #fff;
+    padding: 12px 14px 12px 42px;
+    /* Left padding for icon */
+    border-radius: 10px;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.form-control-dark:focus {
+    border-color: #8b5cf6;
+    outline: none;
+    background: #0a0a0a;
+}
+
+.input-group-dark {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.input-icon-dark {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #525252;
+    font-size: 1rem;
+    transition: color 0.2s;
+}
+
+.form-control-dark:focus+.input-icon-dark,
+.form-control-dark:not(:placeholder-shown)+.input-icon-dark {
+    color: #8b5cf6;
+}
+
+.btn-light-brand {
+    background: #fff;
+    color: #000;
+    width: 100%;
+    padding: 12px;
+    border-radius: 25px;
+    border: none;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 10px;
+}
+
+.btn-light-brand:hover {
+    background: #e5e5e5;
+    transform: translateY(-1px);
+}
+
+.auth-footer-dark {
+    text-align: center;
+    margin-top: 25px;
+    color: #525252;
+    font-size: 0.9rem;
+}
+
+.auth-link-dark {
+    color: #8b5cf6;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.auth-link-dark:hover {
+    color: #a78bfa;
+}
+
+/* Background Image Overlay for Split/Side look (Optional) */
+.auth-bg-image {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 50%;
+    background-size: cover;
+    background-position: center;
+    mask-image: linear-gradient(to left, black 50%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to left, black 50%, transparent 100%);
+    z-index: 1;
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+@media (max-width: 900px) {
+    .auth-bg-image {
+        width: 100%;
+        mask-image: linear-gradient(to bottom, transparent, black);
+        -webkit-mask-image: linear-gradient(to bottom, transparent, black);
+        opacity: 0.2;
+    }
+}
+
+/* Split Screen Layout for Registration Pages */
+.split-screen-container {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #000;
+}
+
+.split-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    background: #000;
+    position: relative;
+    z-index: 10;
+}
+
+.split-right {
+    flex: 1;
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    min-height: 100vh;
+}
+
+/* Gradient overlay on the right image */
+.split-right::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, #000 0%, transparent 100%);
+    pointer-events: none;
+}
+
+@media (max-width: 900px) {
+    .split-right {
+        display: none;
+    }
+
+    .split-left {
+        width: 100%;
+        padding: 20px;
+    }
+}
+
+
+/* =========================================
+   App-like Mobile Interface Styles
+   ========================================= */
+
+/* Bottom Navigation Bar (Hidden by default, shown on mobile) */
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 70px;
+    background: rgba(10, 10, 10, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--glass-border);
+    z-index: 1000;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 10px;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    gap: 5px;
+    padding: 8px;
+    flex: 1;
+    transition: all 0.2s ease;
+}
+
+.mobile-nav-item i {
+    font-size: 1.4rem;
+    margin-bottom: 2px;
+    transition: transform 0.2s;
+}
+
+.mobile-nav-item.active,
+.mobile-nav-item:hover {
+    color: var(--primary);
+}
+
+.mobile-nav-item.active i {
+    transform: translateY(-2px);
+}
+
+/* Mobile Media Queries */
+@media (max-width: 768px) {
+
+    /* 1. Simplify Top Navbar */
+    .glass-nav {
+        padding: 0 20px;
+        height: 60px;
+        position: sticky;
+    }
+
+    .nav-links-container {
+        display: none;
+        /* Hide Desktop Links */
+    }
+
+    .hamburger {
+        display: none;
+        /* Hide toggle if using bottom nav */
+    }
+
+    /* 2. Show Bottom Navigation */
+    .mobile-bottom-nav {
+        display: flex;
+        animation: slideUp 0.3s ease-out;
+    }
+
+    /* 3. Adjust Main Wrapper padding to not hide behind bottom nav */
+    .main-wrapper {
+        padding: 20px 20px 90px 20px;
+        /* added bottom padding */
+    }
+
+    /* 4. Full Width Cards */
+    .stats-grid {
+        grid-template-columns: 1fr;
+        /* Single column */
+        gap: 16px;
+    }
+
+    .dashboard-split {
+        flex-direction: column;
+    }
+
+    .glass-card {
+        padding: 20px;
+        border-radius: 16px;
+    }
+
+    .tech-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* 5. Typography Adjustments */
+    .page-header-simple {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .page-header-simple h1 {
+        font-size: 1.8rem;
+    }
+
+    .time-display {
+        font-size: 0.9rem;
+        padding: 6px 12px;
+        width: 100%;
+        text-align: center;
+    }
+
+    /* 6. Form Inputs bigger for touch */
+    input,
+    select,
+    textarea,
+    .btn {
+        font-size: 16px;
+        /* prevent zoom on iOS */
+        padding: 14px;
+        height: auto;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+    }
+
+    to {
+        transform: translateY(0);
     }
 }

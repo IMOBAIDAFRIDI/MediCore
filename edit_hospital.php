@@ -1,201 +1,212 @@
 <?php
+/**
+ * Edit Hospital Details | Admin
+ */
 session_start();
-include 'db_connect.php';
+require_once 'config.php';
+require_once 'db_connect_pdo.php';
 
-// Check if user is logged in as admin
-if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
-    header("Location: login.php");
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
+    header('Location: login.php');
     exit();
 }
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-$msg = "";
-
-// Handle Update
-if (isset($_POST['update_hospital'])) {
-    $name = $conn->real_escape_string($_POST['name']);
-    $email = $conn->real_escape_string($_POST['email']);
-    $address = $conn->real_escape_string($_POST['address']);
-    $location = $conn->real_escape_string($_POST['location']);
-    
-    // Default to keeping existing image
-    $image_query_part = "";
-    
-    // Handle Image Upload if provided
-    if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-        $filename = $_FILES['image']['name'];
-        $filetype = $_FILES['image']['type'];
-        $filesize = $_FILES['image']['size'];
-    
-        $ext = pathinfo($filename, PATHINFO_EXTENSION);
-        if (!in_array(strtolower($ext), $allowed)) {
-            $msg = "Error: Invalid file format. Only JPG, PNG, GIF, and WebP allowed.";
-        } elseif ($filesize > 5000000) { // 5MB limit
-            $msg = "Error: File size too large. Max 5MB.";
-        } else {
-            // Ensure uploads directory exists
-            if (!file_exists('uploads')) {
-                mkdir('uploads', 0777, true);
-            }
-            
-            $new_filename = time() . "_" . $filename; // Rename file to avoid collisions
-            $target_path = "uploads/" . $new_filename;
-            
-            if (move_uploaded_file($_FILES['image']['tmp_name'], $target_path)) {
-                $image = $conn->real_escape_string($target_path);
-                $image_query_part = ", image='$image'";
-            } else {
-                $msg = "Error uploading file.";
-            }
-        }
-    } else {
-        // Fallback: If URL provided via text input (legacy support or external URL)
-        // But we prioritize file upload. If no file, check if url field was used? 
-        // Current design uses file input. Let's stick to file input as primary.
-        // If user wants to paste URL, we might need a separate field or logic, 
-        // but user requested "profile image and logo same", implying file upload sync.
-        // We'll trust the file upload. 
-    }
-
-    if (empty($msg)) {
-        $sql = "UPDATE hospitals SET name='$name', email='$email', address='$address', location='$location' $image_query_part WHERE id=$id";
-        if ($conn->query($sql)) {
-            header("Location: admin_hospitals.php");
-            exit();
-        } else {
-            $msg = "Error updating record: " . $conn->error;
-        }
-    }
+$id = $_GET['id'] ?? null;
+if (!$id) {
+    header('Location: admin_hospitals.php');
+    exit();
 }
 
 // Fetch Hospital Data
-$sql = "SELECT * FROM hospitals WHERE id=$id";
-$result = $conn->query($sql);
-$hospital = $result->fetch_assoc();
+$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? AND role = 'hospital'");
+$stmt->execute([$id]);
+$hospital = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$hospital) {
-    die("Hospital not found.");
+    die("Hospital not found");
+}
+
+$error = '';
+$success = '';
+
+// Handle Update
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $name = $_POST['name'];
+    $email = $_POST['email'];
+    $phone = $_POST['phone'];
+    $location = $_POST['location'];
+    $address = $_POST['address'];
+
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET name = ?, email = ?, phone = ?, location = ?, address = ? WHERE id = ?");
+        $stmt->execute([$name, $email, $phone, $location, $address, $id]);
+        $success = "Hospital updated successfully!";
+        // Refresh data
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$id]);
+        $hospital = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
+            $error = "Email address is already in use by another account.";
+        } else {
+            $error = "Error updating hospital: " . $e->getMessage();
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Edit Hospital | MediCore Admin</title>
+    <title>Edit Hospital | Admin</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .image-preview-container {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 3px solid var(--primary);
-            margin-bottom: 15px;
-            background: #f0f0f0;
+        body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: var(--background); }
+        .glass-nav { position: fixed; top: 0; left: 0; width: 100%; z-index: 1000; background: #000000; backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .main-container {
+            height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            box-sizing: border-box;
+            background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.05), transparent 40%),
+                        radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.05), transparent 40%);
         }
-        .image-preview {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+
+        .edit-card { 
+            background: rgba(255, 255, 255, 0.02); 
+            backdrop-filter: blur(25px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 30px; 
+            padding: 25px 35px; 
+            max-width: 550px; 
+            width: 95%;
+            position: relative;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+            animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
+        .branding-internal {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .branding-internal i { 
+            font-size: 1.5rem; 
+            background: linear-gradient(135deg, var(--primary), #7c3aed); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent;
+        }
+        .branding-internal h1 { 
+            font-size: 1.3rem; 
+            font-weight: 800; 
+            letter-spacing: 1px; 
+            text-transform: uppercase; 
+            margin: 0;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .full-width { grid-column: span 2; }
+        
+        .input-group { margin-bottom: 8px; }
+        .input-group label { display: block; margin-bottom: 3px; color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+        .input-group input, .input-group textarea { 
+            width: 100%; 
+            background: rgba(255,255,255,0.03); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 10px; 
+            padding: 8px 12px; 
+            color: #fff; 
+            outline: none; 
+            transition: all 0.3s;
+            font-size: 0.85rem;
+        }
+        .input-group input:focus { border-color: var(--primary); background: rgba(255,255,255,0.06); box-shadow: 0 0 15px rgba(139, 92, 246, 0.1); }
+
+        .btn-update { 
+            width: 100%; 
+            background: linear-gradient(135deg, var(--primary), #7c3aed); 
+            color: #fff; 
+            padding: 12px; 
+            border-radius: 12px; 
+            font-weight: 800; 
+            border: none; 
+            cursor: pointer; 
+            transition: all 0.4s; 
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-size: 0.85rem;
+        }
+        .btn-update:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(139, 92, 246, 0.4); opacity: 0.9; }
+
+        .alert { padding: 12px 18px; border-radius: 12px; margin-bottom: 20px; font-size: 0.85rem; }
+        .alert-error { background: rgba(244, 63, 94, 0.1); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.2); }
+        .alert-success { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
     </style>
 </head>
-<body>
-    <nav class="glass-nav">
-        <a href="admin_dashboard.php" class="nav-brand">
-            <i class="fa-solid fa-heart-pulse text-primary"></i>
-            <span>MediCore</span>
-        </a>
-         <div class="nav-links-container">
-            <a href="admin_dashboard.php" class="nav-link">
-                <i class="fa-solid fa-chart-grid"></i> Dashboard
-            </a>
-            <a href="admin_hospitals.php" class="nav-link active">
-                <i class="fa-solid fa-hospital"></i> Hospitals
-            </a>
-             <a href="logout.php" class="nav-link" style="color: #ef4444;">
-                <i class="fa-solid fa-power-off"></i> Logout
-            </a>
-        </div>
-    </nav>
+<body style="background: var(--background); color: var(--text-light);">
 
-    <div class="main-wrapper animate-fade">
-        <div class="page-header-simple">
-            <div>
-                <h1>Edit Hospital</h1>
-                <p class="text-muted">Update hospital details</p>
+    <div class="main-container">
+        <div class="edit-card">
+            <div class="branding-internal">
+                <i class="fa-solid fa-virus-covid"></i>
+                <h1>MediCore</h1>
             </div>
-            <a href="admin_hospitals.php" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back</a>
-        </div>
-
-        <div class="glass-card" style="max-width: 600px; margin: 0 auto;">
-            <div class="card-header">
-                <h3><i class="fa-solid fa-pen-to-square"></i> Edit Details</h3>
+            <div style="text-align: center; margin-bottom: 15px;">
+                <h3 style="margin:0; color:#fff; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">EDIT HOSPITAL PROFILE</h3>
+                <p class="text-muted" style="font-size:0.65rem; margin-top:4px;">Secure Administrative Override | ID: #<?php echo $hospital['id']; ?></p>
             </div>
-            <div class="p-4">
-                <?php if($msg) echo "<div class='badge badge-danger mb-3' style='display:block'>$msg</div>"; ?>
-                
-                <form method="POST" enctype="multipart/form-data">
-                    <div class="form-group mb-3">
-                        <label class="text-muted mb-2 d-block">Hospital Name</label>
-                        <input type="text" name="name" class="glass-input" value="<?php echo htmlspecialchars($hospital['name']); ?>" required>
-                    </div>
 
-                    <div class="form-group mb-3">
-                        <label class="text-muted mb-2 d-block">Email Address</label>
-                        <input type="email" name="email" class="glass-input" value="<?php echo htmlspecialchars($hospital['email']); ?>" required>
-                    </div>
+            <?php if($error): ?>
+                <div class="alert alert-error"><i class="fa-solid fa-triangle-exclamation"></i> <?php echo $error; ?></div>
+            <?php endif; ?>
+            <?php if($success): ?>
+                <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <?php echo $success; ?></div>
+            <?php endif; ?>
 
-                    <div class="form-group mb-3">
-                        <label class="text-muted mb-2 d-block">Location (City)</label>
-                        <input type="text" name="location" class="glass-input" value="<?php echo htmlspecialchars($hospital['location']); ?>" required>
+            <form method="POST">
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label>Hospital Name</label>
+                        <input type="text" name="name" value="<?php echo htmlspecialchars($hospital['name']); ?>" placeholder="Enter hospital name" required>
                     </div>
-
-                    <div class="form-group mb-3">
-                        <label class="text-muted mb-2 d-block">Hospital Logo</label>
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="image-preview-container">
-                                <?php 
-                                    $current_img = !empty($hospital['image']) ? $hospital['image'] : 'https://cdn-icons-png.flaticon.com/512/33/33777.png';
-                                ?>
-                                <img src="<?php echo htmlspecialchars($current_img); ?>" alt="Current Logo" class="image-preview" id="preview-img">
-                            </div>
-                            <div style="flex-grow: 1;">
-                                <input type="file" name="image" class="glass-input" accept="image/*" onchange="previewImage(this)">
-                                <small class="text-muted d-block mt-1">Leave empty to keep current logo.</small>
-                            </div>
-                        </div>
+                    <div class="input-group">
+                        <label>Email Address</label>
+                        <input type="email" name="email" value="<?php echo htmlspecialchars($hospital['email']); ?>" placeholder="e.g. contact@hospital.com" required>
                     </div>
-
-                    <div class="form-group mb-4">
-                        <label class="text-muted mb-2 d-block">Full Address</label>
-                        <textarea name="address" class="glass-input" rows="3" required><?php echo htmlspecialchars($hospital['address']); ?></textarea>
+                    <div class="input-group">
+                        <label>Phone Number</label>
+                        <input type="text" name="phone" value="<?php echo htmlspecialchars($hospital['phone'] ?? ''); ?>" placeholder="Enter phone number">
                     </div>
-
-                    <button type="submit" name="update_hospital" class="btn btn-primary" style="width: 100%;">
-                        <i class="fa-solid fa-save"></i> Save Changes
-                    </button>
-                </form>
-            </div>
+                    <div class="input-group">
+                        <label>Location (City)</label>
+                        <input type="text" name="location" value="<?php echo htmlspecialchars($hospital['location'] ?? ''); ?>" placeholder="e.g. Islamabad">
+                    </div>
+                    <div class="input-group full-width">
+                        <label>Full Address</label>
+                        <textarea name="address" rows="3" placeholder="Enter complete street address..." style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px 16px; color: #fff; outline: none; transition: all 0.3s;"><?php echo htmlspecialchars($hospital['address'] ?? ''); ?></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn-update">UPDATE</button>
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="admin_hospitals.php" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: 700; transition: color 0.3s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">
+                        <i class="fa-solid fa-arrow-left"></i> Back
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
-    
-    <script>
-        function previewImage(input) {
-            if (input.files && input.files[0]) {
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('preview-img').src = e.target.result;
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-    </script>
 </body>
 </html>

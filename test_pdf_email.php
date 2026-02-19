@@ -2,6 +2,7 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
+include 'db_connect_pdo.php';
 include 'mail_helper.php';
 require('FPDF/fpdf.php');
 

@@ -1,68 +1,66 @@
 <?php
+/**
+ * Login Page (Legacy Standalone)
+ */
 session_start();
-include 'db_connect.php';
+require_once 'config.php';
+require_once 'db_connect_pdo.php';
+require_once 'csrf_helper.php';
 
-$error = "";
+// Redirect if already logged in
+if (isset($_SESSION['user_id'])) {
+    if ($_SESSION['role'] == 'admin') header('Location: admin_dashboard.php');
+    elseif ($_SESSION['role'] == 'hospital') header('Location: hospital_dashboard.php');
+    else header('Location: patient_dashboard.php');
+    exit();
+}
 
+$email = '';
+$email_err = '';
+$password_err = '';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $email_username = trim($_POST['email']);
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        die('Invalid CSRF Token');
+    }
+
+    $email = trim($_POST['email']);
     $password = trim($_POST['password']);
 
-    if (empty($email_username) || empty($password)) {
-        $error = "Please fill in all fields.";
-    } else {
+    if (empty($email)) $email_err = 'Please enter email';
+    if (empty($password)) $password_err = 'Please enter password';
 
-    // 1. Check Admin
-    $sql = "SELECT * FROM admins WHERE username = '$email_username'";
-    $result = $conn->query($sql);
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        if (password_verify($password, $row['password'])) {
-            $_SESSION['user_id'] = $row['id'];
-            $_SESSION['role'] = 'admin';
-            $_SESSION['name'] = $row['username'];
-            header("Location: admin_dashboard.php");
-            exit();
+    if (empty($email_err) && empty($password_err)) {
+        // Authenticate
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user) {
+            if (password_verify($password, $user['password'])) {
+                if ($user['status'] == 'pending' || $user['status'] == 'rejected') {
+                    $email_err = 'Your account status is ' . $user['status'] . '. Please contact support.';
+                } else {
+                    // Create Session
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['role'] = $user['role'];
+                    $_SESSION['name'] = $user['name'];
+                    $_SESSION['email'] = $user['email'];
+
+                    if ($user['role'] == 'admin') header('Location: admin_dashboard.php');
+                    elseif ($user['role'] == 'hospital') header('Location: hospital_dashboard.php');
+                    else header('Location: patient_dashboard.php');
+                    exit();
+                }
+            } else {
+                $password_err = 'Password incorrect';
+            }
+        } else {
+            $email_err = 'No account found with this email.';
         }
     }
-
-    // 2. Check Hospital
-    $sql = "SELECT * FROM hospitals WHERE email = '$email_username' AND status = 'approved'";
-    $result = $conn->query($sql);
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        if (password_verify($password, $row['password'])) {
-            $_SESSION['user_id'] = $row['id'];
-            $_SESSION['role'] = 'hospital';
-            $_SESSION['name'] = $row['name'];
-            header("Location: hospital_dashboard.php");
-            exit();
-        }
-    }
-
-    // 3. Check Patient
-    $sql = "SELECT * FROM patients WHERE email = '$email_username'";
-    $result = $conn->query($sql);
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        if (password_verify($password, $row['password'])) {
-            $_SESSION['user_id'] = $row['id'];
-            $_SESSION['role'] = 'patient';
-            $_SESSION['name'] = $row['name'];
-            header("Location: patient_dashboard.php");
-            exit();
-        }
-    }
-
-    // If no match found or password incorrect (generic error for security)
-    if (empty($error)) {
-        $error = "Invalid email/username or password.";
-    }
-    } // End else
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -90,15 +88,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <p style="color: var(--text-muted); margin-top: 10px;">Welcome back to the portal</p>
                 </div>
                 
-                <?php if($error) echo "<div style='padding: 10px; background: rgba(248, 113, 113, 0.2); color: #f87171; border-radius: 8px; margin-bottom: 20px; text-align: center;'>$error</div>"; ?>
+                <?php if(!empty($email_err)) echo "<div style='padding: 10px; background: rgba(248, 113, 113, 0.2); color: #f87171; border-radius: 8px; margin-bottom: 20px; text-align: center;'>" . $email_err . "</div>"; ?>
+                <?php if(!empty($password_err)) echo "<div style='padding: 10px; background: rgba(248, 113, 113, 0.2); color: #f87171; border-radius: 8px; margin-bottom: 20px; text-align: center;'>" . $password_err . "</div>"; ?>
                 
-                <form method="POST" action="">
-
+                <form method="POST" action="login.php">
+                    <?php echo get_csrf_input(); ?>
                     <div class="form-group">
                         <label>Email / Username</label>
                         <div style="position: relative;">
                             <i class="fa-solid fa-envelope" style="position: absolute; left: 15px; top: 16px; color: var(--text-muted);"></i>
-                            <input type="text" name="email" required placeholder="Type your email..." style="padding-left: 45px;">
+                            <input type="text" name="email" required placeholder="Type your email..." value="<?php echo htmlspecialchars($email); ?>" style="padding-left: 45px;">
                         </div>
                     </div>
                     <div class="form-group">

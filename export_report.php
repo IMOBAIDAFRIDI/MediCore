@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connect.php';
+include 'db_connect_pdo.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     die("Access Denied");
@@ -21,11 +21,13 @@ $sql = "SELECT a.id, p.name as pname, h.name as hname, a.type, a.appointment_dat
         JOIN hospitals h ON a.hospital_id = h.id 
         ORDER BY a.appointment_date DESC";
 
-$result = $conn->query($sql);
+$stmt = $pdo->query($sql);
 
-while($row = $result->fetch_assoc()) {
+while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     fputcsv($output, $row);
 }
 
+fclose($output);
+?>
 fclose($output);
 ?>
