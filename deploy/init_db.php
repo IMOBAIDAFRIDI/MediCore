@@ -38,13 +38,23 @@ if (!$connected) {
     exit(0);
 }
 
-$exists = $conn->query("SHOW TABLES LIKE 'users'")->num_rows > 0;
-if ($exists) {
-    echo "[init_db] tables already present, nothing to import\n";
+// A marker table is written only after a complete import, so a half-finished
+// earlier attempt is detected and redone instead of being left broken.
+$done = $conn->query("SHOW TABLES LIKE '_medicore_init'")->num_rows > 0;
+if ($done) {
+    echo "[init_db] database already initialised, nothing to import\n";
     exit(0);
 }
 
 $sql = str_replace("\r\n", "\n", file_get_contents(__DIR__ . '/../Database/medicore.sql'));
+
+// Drop tables left by an incomplete previous attempt.
+preg_match_all('/CREATE TABLE `(\w+)`/', $sql, $tm);
+$conn->query("SET FOREIGN_KEY_CHECKS = 0");
+foreach ($tm[1] as $t) {
+    $conn->query("DROP TABLE IF EXISTS `$t`");
+}
+$conn->query("SET FOREIGN_KEY_CHECKS = 1");
 
 // 1. Collect "ALTER TABLE `t` ADD PRIMARY KEY (...)" and strip that clause.
 $primaryKeys = [];
@@ -68,12 +78,47 @@ foreach ($primaryKeys as $table => $cols) {
     );
 }
 
-echo "[init_db] importing schema + seed data (" . count($primaryKeys) . " tables)\n";
-$conn->multi_query($sql);
-do {
-    if ($result = $conn->store_result()) {
-        $result->free();
-    }
-} while ($conn->more_results() && $conn->next_result());
+// 3. "ALTER TABLE `t` MODIFY `id` ... AUTO_INCREMENT, AUTO_INCREMENT=N;" is not
+//    supported by TiDB. Mark the column AUTO_INCREMENT inside CREATE TABLE and
+//    keep only the counter as "ALTER TABLE `t` AUTO_INCREMENT=N".
+$sql = preg_replace_callback(
+    '/ALTER TABLE `(\w+)`\s+MODIFY `(\w+)` ([^;]*?) AUTO_INCREMENT(?:, AUTO_INCREMENT=(\d+))?;/',
+    function ($m) {
+        [$all, $table, $col, , $next] = $m + [4 => null];
+        $GLOBALS['__autoinc'][$table] = $col;
+        return $next ? "ALTER TABLE `$table` AUTO_INCREMENT=$next;" : '';
+    },
+    $sql
+);
+foreach ($GLOBALS['__autoinc'] ?? [] as $table => $col) {
+    $sql = preg_replace(
+        '/(CREATE TABLE `' . preg_quote($table, '/') . '` \(.*?\n  `' . preg_quote($col, '/') . '` [^\n,]*?NOT NULL)/s',
+        '$1 AUTO_INCREMENT',
+        $sql,
+        1
+    );
+}
 
-echo "[init_db] import finished\n";
+// 4. Run statement by statement so one incompatible line is logged, not fatal.
+$statements = array_filter(array_map('trim', preg_split('/;\s*\n/', $sql)), function ($s) {
+    $s = preg_replace('/^(--[^\n]*\n|\s)+/', '', $s);
+    return $s !== '' && strpos($s, '--') !== 0;
+});
+
+echo "[init_db] importing " . count($statements) . " statements (" . count($primaryKeys) . " tables)\n";
+mysqli_report(MYSQLI_REPORT_OFF);
+$failed = 0;
+foreach ($statements as $stmt) {
+    if (!$conn->query($stmt)) {
+        $failed++;
+        fwrite(STDERR, "[init_db] statement failed ({$conn->errno} {$conn->error}): " . substr(preg_replace('/\s+/', ' ', $stmt), 0, 160) . "\n");
+    }
+}
+
+if ($failed === 0) {
+    $conn->query("CREATE TABLE `_medicore_init` (id INT PRIMARY KEY, done_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+    $conn->query("INSERT INTO `_medicore_init` (id) VALUES (1)");
+    echo "[init_db] import finished successfully\n";
+} else {
+    fwrite(STDERR, "[init_db] import finished with $failed failed statement(s); will retry on next start\n");
+}
