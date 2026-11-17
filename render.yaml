@@ -7,17 +7,17 @@ services:
     plan: free
     healthCheckPath: /login.php
     envVars:
-      # Aiven MySQL → Service overview → Connection information
+      # TiDB Cloud Starter (MySQL compatible) → Connect → host / user / password
       - key: DB_HOST
         sync: false
       - key: DB_PORT
-        sync: false
+        value: "4000"
       - key: DB_USER
         sync: false
       - key: DB_PASS
         sync: false
       - key: DB_NAME
-        value: defaultdb
+        value: test
       - key: DB_SSL
         value: "1"
       # Optional: Gmail address + app password for appointment emails
