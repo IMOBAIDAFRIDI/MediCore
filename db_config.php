@@ -10,7 +10,9 @@ if (!function_exists('medicore_db_config')) {
     {
         $env = function (string $key, $default = null) {
             $v = getenv($key);
-            return ($v === false || $v === '') ? $default : $v;
+            // Values pasted into hosting dashboards often carry stray spaces/newlines.
+            $v = ($v === false) ? '' : trim($v);
+            return $v === '' ? $default : $v;
         };
         return [
             'host' => $env('DB_HOST', 'localhost'),
