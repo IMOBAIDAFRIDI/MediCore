@@ -38,11 +38,42 @@ if (!$connected) {
     exit(0);
 }
 
+/**
+ * Keep the admin password private: when ADMIN_PASSWORD is set (e.g. generated
+ * by Render), apply it to the admin account on every boot. Nothing changes
+ * when it is not set.
+ */
+function medicore_sync_admin_password(mysqli $conn): void
+{
+    $password = trim((string) getenv('ADMIN_PASSWORD'));
+    if ($password === '') {
+        return;
+    }
+    $email = trim((string) (getenv('ADMIN_EMAIL') ?: 'admin@medicore'));
+    $current = $conn->prepare("SELECT id, password FROM users WHERE email = ? AND role = 'admin' LIMIT 1");
+    $current->bind_param('s', $email);
+    $current->execute();
+    $row = $current->get_result()->fetch_assoc();
+    if (!$row) {
+        fwrite(STDERR, "[init_db] admin account $email not found; password not applied\n");
+        return;
+    }
+    if (password_verify($password, $row['password'])) {
+        return; // already up to date
+    }
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+    $update = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+    $update->bind_param('si', $hash, $row['id']);
+    $update->execute();
+    echo "[init_db] admin password updated from ADMIN_PASSWORD\n";
+}
+
 // A marker table is written only after a complete import, so a half-finished
 // earlier attempt is detected and redone instead of being left broken.
 $done = $conn->query("SHOW TABLES LIKE '_medicore_init'")->num_rows > 0;
 if ($done) {
     echo "[init_db] database already initialised, nothing to import\n";
+    medicore_sync_admin_password($conn);
     exit(0);
 }
 
@@ -119,6 +150,8 @@ if ($failed === 0) {
     $conn->query("CREATE TABLE `_medicore_init` (id INT PRIMARY KEY, done_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
     $conn->query("INSERT INTO `_medicore_init` (id) VALUES (1)");
     echo "[init_db] import finished successfully\n";
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    medicore_sync_admin_password($conn);
 } else {
     fwrite(STDERR, "[init_db] import finished with $failed failed statement(s); will retry on next start\n");
 }
