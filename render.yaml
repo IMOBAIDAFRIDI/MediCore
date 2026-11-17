@@ -1,0 +1,27 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# New → Blueprint → pick this repo. Render asks for the values marked sync: false.
+services:
+  - type: web
+    name: medicore
+    runtime: docker
+    plan: free
+    healthCheckPath: /login.php
+    envVars:
+      # Aiven MySQL → Service overview → Connection information
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: DB_NAME
+        value: defaultdb
+      - key: DB_SSL
+        value: "1"
+      # Optional: Gmail address + app password for appointment emails
+      - key: SMTP_EMAIL
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false

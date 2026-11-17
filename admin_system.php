@@ -18,9 +18,9 @@ $server_addr = $_SERVER['SERVER_ADDR'] ?? '127.0.0.1';
 $server_software = $_SERVER['SERVER_SOFTWARE'];
 
 // Count data
-$db_size = $pdo->query("SELECT SUM(data_length + index_length) / 1024 / 1024 AS size FROM information_schema.TABLES WHERE table_schema = 'medicore'")->fetchColumn();
-$table_count = $pdo->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = 'medicore'")->fetchColumn();
-$row_count = $pdo->query("SELECT SUM(TABLE_ROWS) FROM information_schema.TABLES WHERE table_schema = 'medicore'")->fetchColumn();
+$db_size = $pdo->query("SELECT SUM(data_length + index_length) / 1024 / 1024 AS size FROM information_schema.TABLES WHERE table_schema = DATABASE()")->fetchColumn();
+$table_count = $pdo->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE()")->fetchColumn();
+$row_count = $pdo->query("SELECT SUM(TABLE_ROWS) FROM information_schema.TABLES WHERE table_schema = DATABASE()")->fetchColumn();
 
 // Count uploads
 $upload_dir = 'uploads/';

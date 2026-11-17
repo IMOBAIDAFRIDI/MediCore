@@ -7,3 +7,17 @@
   RewriteCond %{REQUEST_FILENAME}.php -f
   RewriteRule ^(.*)$ $1.php [L,QSA]
 </IfModule>
+
+# --- Production hardening ---------------------------------------------------
+# Never serve secrets, dumps, docs or deployment files.
+<FilesMatch "(^\.env|\.sql$|\.md$|\.sh$|\.js\.map$|^Dockerfile$|^render\.yaml$|^email_queue_processor\.js$)">
+  Require all denied
+</FilesMatch>
+
+# Developer / maintenance scripts stay local-only (they reset data or print
+# DB internals). Remove a name here if you really need it online.
+<FilesMatch "^(debug_.*|test_.*|check_.*|fix_.*|create_.*_table|generate_.*dump|reset_admin|seeder|repair_db|index_legacy|db_config)\.php$">
+  Require all denied
+</FilesMatch>
+
+RedirectMatch 404 ^/(Database|deploy|\.git)(/|$)

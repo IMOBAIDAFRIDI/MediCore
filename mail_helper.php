@@ -85,7 +85,10 @@ function sendMail($to, $subject, $body, $attachment = null, $delete_after = fals
 
     // 2. Fire async non-blocking HTTP request to async_mailer.php
     //    curl returns immediately — email sends in background
-    $async_url = 'http://127.0.0.1/medicore/async_mailer.php';
+    // In Docker (Render) Apache serves the app at / on $PORT; locally under /medicore.
+    $async_url = getenv('PORT')
+        ? 'http://127.0.0.1:' . getenv('PORT') . '/async_mailer.php'
+        : 'http://127.0.0.1/medicore/async_mailer.php';
     $post_data = http_build_query([
         'to'         => $to,
         'subject'    => $subject,
