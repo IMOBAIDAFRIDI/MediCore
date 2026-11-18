@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/fpdf/fpdf.php';
+require_once __DIR__ . '/FPDF/fpdf.php';
 
 // ── Copy of generateAppointmentReport() for isolated test ────────────
 function generateAppointmentReport($appt, $result_note, $hospital_id, $auto_remarks = '') {

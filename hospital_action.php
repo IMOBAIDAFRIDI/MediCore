@@ -243,7 +243,7 @@ function generateAutoRemarks($appt, $result_note) {
 
 // ── PDF Report Generator (FPDF) ─────────────────────────────────────
 function generateAppointmentReport($appt, $result_note, $hospital_id, $auto_remarks = '') {
-    require_once __DIR__ . '/fpdf/fpdf.php';
+    require_once __DIR__ . '/FPDF/fpdf.php';
 
     $is_vacc     = $appt['type'] === 'vaccination';
     $type_label  = $is_vacc ? 'Vaccination Certificate' : 'COVID-19 Test Report';
